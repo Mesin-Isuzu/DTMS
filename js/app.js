@@ -9,10 +9,57 @@ const safeStorage = {
 class App {
     constructor() {
         this.appEl = document.getElementById('app');
-        this.currentUser = JSON.parse(safeStorage.getItem('dtms_user')) || null;
+        this.currentUser = null;
         this.data = window.dtmsData;
-        
+        this.loading = true;
+        this.supabaseReady = false;
+
         window.addEventListener('hashchange', () => this.router());
+        this.loadSessionAndData();
+    }
+
+    renderLoading() {
+        this.appEl.innerHTML = `
+            <div class="login-container">
+                <div class="login-box" style="text-align:center">
+                    <img src="img/isuzu_logo.svg" alt="ISUZU" class="login-logo">
+                    <h2>DTMS</h2>
+                    <p>Menghubungkan ke database...</p>
+                </div>
+            </div>
+        `;
+    }
+
+    async loadSessionAndData() {
+        this.renderLoading();
+
+        if (window.DTMS && window.DTMS.enabled()) {
+            try {
+                const { data: { session } } = await window.DTMS.getSession();
+                if (session && session.user) {
+                    const meta = session.user.user_metadata || {};
+                    this.currentUser = {
+                        id: session.user.id,
+                        email: session.user.email,
+                        username: meta.username || session.user.email,
+                        role: meta.role || 'Pengguna Supplier',
+                        name: meta.name || session.user.email,
+                        company: meta.company || '',
+                        supplierId: meta.supplierId || null
+                    };
+                }
+                const dbData = await window.DTMS.loadAll();
+                if (dbData) {
+                    this.data = dbData;
+                    this.supabaseReady = true;
+                }
+            } catch (err) {
+                console.error('Supabase load error:', err);
+                alert('Gagal terhubung ke Supabase. Aplikasi berjalan dengan data lokal.');
+            }
+        }
+
+        this.loading = false;
         this.init();
     }
 
@@ -89,22 +136,60 @@ class App {
         }
     }
 
-    login(username) {
+    async login(username, password) {
         const user = this.data.users.find(u => u.username === username);
+
+        if (window.DTMS && window.DTMS.enabled()) {
+            const email = user && user.email ? user.email : `${username}@dtms.local`;
+            const { user: authUser, error } = await window.DTMS.login(email, password || 'password');
+            if (error || !authUser) {
+                alert('Login gagal: ' + (error?.message || 'kredensial salah'));
+                return;
+            }
+            const meta = authUser.user_metadata || {};
+            this.currentUser = {
+                id: authUser.id,
+                email: authUser.email,
+                username: meta.username || username,
+                role: meta.role || 'Pengguna Supplier',
+                name: meta.name || username,
+                company: meta.company || '',
+                supplierId: meta.supplierId || null
+            };
+            // Reload data because RLS may now expose different rows
+            const dbData = await window.DTMS.loadAll();
+            if (dbData) this.data = dbData;
+            window.location.hash = '#dashboard';
+            return;
+        }
+
+        // Fallback: fake login for local development without Supabase
         if (user) {
             this.currentUser = user;
-            safeStorage.setItem('dtms_user', JSON.stringify(user));
             window.location.hash = '#dashboard';
         } else {
             alert('Kredensial tidak valid. Coba: admin, purchasing, atau supplier1');
         }
     }
 
-    logout() {
+    async logout() {
+        if (window.DTMS && window.DTMS.enabled()) {
+            await window.DTMS.logout();
+        }
         this.currentUser = null;
-        safeStorage.removeItem('dtms_user');
         window.location.hash = '';
         this.renderLogin();
+    }
+
+    _supplierIdByName(name) {
+        const map = {
+            'PT Auto Parts': 'SUP001',
+            'PT Plasticindo': 'SUP002',
+            'PT Metalindo': 'SUP003'
+        };
+        if (map[name]) return map[name];
+        const u = this.data.users.find(x => x.name === name || x.company === name);
+        return u?.supplierId || null;
     }
 
     updateActiveNav(route) {
@@ -144,7 +229,7 @@ class App {
                         <h2>MESIN ISUZU INDONESIA</h2>
                         <p>Dies & Tool Management</p>
                     </div>
-                    <form class="login-form" onsubmit="event.preventDefault(); app.login(document.getElementById('username').value);">
+                    <form class="login-form" onsubmit="event.preventDefault(); app.login(document.getElementById('username').value, document.getElementById('password').value);">
                         <div class="form-group">
                             <label class="form-label">Username</label>
                             <input type="text" id="username" class="form-control" placeholder="Masukkan username" required value="admin">
@@ -901,7 +986,7 @@ getToolingListView() {
         this.executeDeleteTooling(id);
     }
 
-    executeDeleteTooling(id) {
+    async executeDeleteTooling(id) {
         const t = this.data.toolings.find(x => x.id === id);
         if (!t) return;
 
@@ -912,6 +997,10 @@ getToolingListView() {
         this.data.supplierTasks = (this.data.supplierTasks || []).filter(l => l.toolId !== id);
         this.data.movementLogs = (this.data.movementLogs || []).filter(l => l.toolId !== id);
         this.data.productionLogs = (this.data.productionLogs || []).filter(l => l.toolId !== id);
+
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.deleteTooling(id);}catch(e){console.error(e);alert('Gagal menghapus tooling di database.');}
+        }
 
         alert('Tooling "' + id + ' - ' + t.name + '" dan seluruh data terkait telah dihapus.');
         document.getElementById('app-layout')?.remove();
@@ -1059,12 +1148,14 @@ getToolingListView() {
         const today = new Date().toISOString().split('T')[0];
         const fileInput = document.getElementById('st-evidence');
         const files = fileInput?.files;
-        const afterRead = (evidenceArr, nameArr) => {
-            this.data.supplierTasks.push({
+        const afterRead = async (evidenceArr, nameArr, pathArr) => {
+            const supplierId = this._supplierIdByName(v('st-supplier'));
+            const newTask = {
                 id: newId,
                 toolId: toolSel.value,
                 toolName: toolOpt?.getAttribute('data-name') || '',
                 supplier: v('st-supplier'),
+                supplierId: supplierId,
                 type: v('st-type'),
                 description: v('st-desc'),
                 assignedDate: today,
@@ -1073,8 +1164,13 @@ getToolingListView() {
                 priority: v('st-priority') || 'Normal',
                 completedDate: v('st-status') === 'Selesai' ? (v('st-completedDate') || null) : null,
                 evidence: nameArr || null,
-                evidenceData: evidenceArr || null
-            });
+                evidencePath: pathArr || null
+            };
+            this.data.supplierTasks.push(newTask);
+            if (window.DTMS && window.DTMS.enabled()) {
+                try { await window.DTMS.insertSupplierTask(newTask); }
+                catch (e) { console.error(e); alert('Gagal menyimpan tugas ke database.'); }
+            }
             this.closeModal('add-task-modal');
             alert(`Tugas ${newId} berhasil dibuat!`);
             document.getElementById('app-layout')?.remove(); this.router();
@@ -1085,19 +1181,27 @@ getToolingListView() {
                 if (f.size > 5242880) { alert(`File "${f.name}" melebihi batas maksimal 5MB.`); return; }
             }
             const results = []; let loaded = 0;
-            const done = () => {
+            const done = async () => {
                 if (loaded < fileArr.length) return;
                 const nameArr = results.map(r => r.name);
-                const dataArr = results.map(r => r.data);
-                afterRead(dataArr, nameArr);
+                const pathArr = results.map(r => r.path);
+                await afterRead(null, nameArr, pathArr);
             };
             fileArr.forEach(f => {
-                const reader = new FileReader();
-                reader.onload = e => { results.push({ name: f.name, data: e.target.result }); loaded++; done(); };
-                reader.readAsDataURL(f);
+                if (window.DTMS && window.DTMS.enabled()) {
+                    const path = window.DTMS.makePath('supplierTasks', newId, f.name);
+                    window.DTMS.uploadFile('evidence', f, path).then(res => {
+                        results.push({ name: f.name, path: res.publicUrl || res.path });
+                        loaded++; done();
+                    }).catch(err => { console.error(err); loaded++; done(); });
+                } else {
+                    const reader = new FileReader();
+                    reader.onload = e => { results.push({ name: f.name, path: e.target.result }); loaded++; done(); };
+                    reader.readAsDataURL(f);
+                }
             });
         } else {
-            afterRead(null, null);
+            afterRead(null, null, null);
         }
     }
 
@@ -1153,7 +1257,7 @@ getToolingListView() {
         }
     }
 
-    submitEditSupplierTask(taskId) {
+    async submitEditSupplierTask(taskId) {
         const t = this.data.supplierTasks.find(x => x.id === taskId);
         if (!t) return;
         const v = id => document.getElementById(id)?.value?.trim();
@@ -1163,6 +1267,7 @@ getToolingListView() {
         t.toolId = toolSel?.value || t.toolId;
         t.toolName = toolOpt?.getAttribute('data-name') || t.toolName;
         t.supplier = document.getElementById('est-supplier')?.value || t.supplier;
+        t.supplierId = this._supplierIdByName(t.supplier);
         t.type = v('est-type') || t.type;
         t.description = v('est-desc') || t.description;
         t.dueDate = v('est-due') || t.dueDate;
@@ -1172,16 +1277,22 @@ getToolingListView() {
         const fileInput = document.getElementById('est-evidence');
         const files = fileInput?.files;
         let currentEvidence = t.evidence && Array.isArray(t.evidence) ? [...t.evidence] : (t.evidence ? [t.evidence] : []);
-        let currentData = t.evidenceData && Array.isArray(t.evidenceData) ? [...t.evidenceData] : (t.evidenceData ? [t.evidenceData] : []);
+        let currentPaths = t.evidencePath && Array.isArray(t.evidencePath) ? [...t.evidencePath] : (t.evidencePath ? [t.evidencePath] : []);
         const removed = this._editTaskEvidenceRemoved || [];
         if (removed.length > 0) {
             removed.sort((a, b) => b - a);
-            removed.forEach(idx => { currentEvidence.splice(idx, 1); currentData.splice(idx, 1); });
+            removed.forEach(idx => { currentEvidence.splice(idx, 1); currentPaths.splice(idx, 1); });
         }
-        const afterRead = (evidenceArr, nameArr) => {
-            t.evidence = [...currentEvidence, ...(nameArr || [])];
-            t.evidenceData = [...currentData, ...(evidenceArr || [])];
-            if (t.evidence.length === 0) { t.evidence = null; t.evidenceData = null; }
+        const afterRead = async (nameArr, pathArr) => {
+            const allNames = [...currentEvidence, ...(nameArr || [])];
+            const allPaths = [...currentPaths, ...(pathArr || [])];
+            t.evidence = allNames.length ? (allNames.length === 1 ? allNames[0] : allNames.join(', ')) : null;
+            t.evidencePath = allPaths.length ? (allPaths.length === 1 ? allPaths[0] : allPaths.join(', ')) : null;
+            delete t.evidenceData;
+            if (window.DTMS && window.DTMS.enabled()) {
+                try { await window.DTMS.updateSupplierTask(taskId, t); }
+                catch (e) { console.error(e); alert('Gagal memperbarui tugas di database.'); }
+            }
             this.closeModal('edit-task-modal');
             alert(`Tugas ${taskId} berhasil diperbarui!`);
             document.getElementById('app-layout')?.remove(); this.router();
@@ -1192,28 +1303,40 @@ getToolingListView() {
                 if (f.size > 5242880) { alert(`File "${f.name}" melebihi batas maksimal 5MB.`); return; }
             }
             const results = []; let loaded = 0;
-            const done = () => {
+            const done = async () => {
                 if (loaded < fileArr.length) return;
                 const nameArr = results.map(r => r.name);
-                const dataArr = results.map(r => r.data);
-                afterRead(dataArr, nameArr);
+                const pathArr = results.map(r => r.path);
+                await afterRead(nameArr, pathArr);
             };
             fileArr.forEach(f => {
-                const reader = new FileReader();
-                reader.onload = e => { results.push({ name: f.name, data: e.target.result }); loaded++; done(); };
-                reader.readAsDataURL(f);
+                if (window.DTMS && window.DTMS.enabled()) {
+                    const path = window.DTMS.makePath('supplierTasks', taskId, f.name);
+                    window.DTMS.uploadFile('evidence', f, path).then(res => {
+                        results.push({ name: f.name, path: res.publicUrl || res.path });
+                        loaded++; done();
+                    }).catch(err => { console.error(err); loaded++; done(); });
+                } else {
+                    const reader = new FileReader();
+                    reader.onload = e => { results.push({ name: f.name, path: e.target.result }); loaded++; done(); };
+                    reader.readAsDataURL(f);
+                }
             });
         } else {
-            afterRead(null, null);
+            await afterRead(null, null);
         }
         this._editTaskEvidenceRemoved = [];
     }
 
-    deleteSupplierTask(taskId) {
+    async deleteSupplierTask(taskId) {
         const idx = this.data.supplierTasks.findIndex(x => x.id === taskId);
         if (idx === -1) return;
         if (!confirm(`Yakin ingin menghapus tugas "${taskId}"?`)) return;
         this.data.supplierTasks.splice(idx, 1);
+        if (window.DTMS && window.DTMS.enabled()) {
+            try { await window.DTMS.deleteSupplierTask(taskId); }
+            catch (e) { console.error(e); alert('Gagal menghapus tugas di database.'); }
+        }
         alert(`Tugas ${taskId} berhasil dihapus.`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
@@ -1263,22 +1386,28 @@ getToolingListView() {
         }
     }
 
-    submitTaskEvidence(taskId) {
+    async submitTaskEvidence(taskId) {
         const t = this.data.supplierTasks.find(x => x.id === taskId);
         if (!t) return;
         const fileInput = document.getElementById('tev-file');
         const files = fileInput?.files;
         let currentEvidence = t.evidence && Array.isArray(t.evidence) ? [...t.evidence] : (t.evidence ? [t.evidence] : []);
-        let currentData = t.evidenceData && Array.isArray(t.evidenceData) ? [...t.evidenceData] : (t.evidenceData ? [t.evidenceData] : []);
+        let currentPaths = t.evidencePath && Array.isArray(t.evidencePath) ? [...t.evidencePath] : (t.evidencePath ? [t.evidencePath] : []);
         const removed = this._taskEvidenceRemoved || [];
         if (removed.length > 0) {
             removed.sort((a, b) => b - a);
-            removed.forEach(idx => { currentEvidence.splice(idx, 1); currentData.splice(idx, 1); });
+            removed.forEach(idx => { currentEvidence.splice(idx, 1); currentPaths.splice(idx, 1); });
         }
-        const afterRead = (evidenceArr, nameArr) => {
-            t.evidence = [...currentEvidence, ...(nameArr || [])];
-            t.evidenceData = [...currentData, ...(evidenceArr || [])];
-            if (t.evidence.length === 0) { t.evidence = null; t.evidenceData = null; }
+        const afterRead = async (nameArr, pathArr) => {
+            const allNames = [...currentEvidence, ...(nameArr || [])];
+            const allPaths = [...currentPaths, ...(pathArr || [])];
+            t.evidence = allNames.length ? (allNames.length === 1 ? allNames[0] : allNames.join(', ')) : null;
+            t.evidencePath = allPaths.length ? (allPaths.length === 1 ? allPaths[0] : allPaths.join(', ')) : null;
+            delete t.evidenceData;
+            if (window.DTMS && window.DTMS.enabled()) {
+                try { await window.DTMS.updateSupplierTask(taskId, t); }
+                catch (e) { console.error(e); alert('Gagal menyimpan evidence ke database.'); }
+            }
             this.closeModal('task-evidence-modal');
             alert('Evidence berhasil disimpan!');
             document.getElementById('app-layout')?.remove();
@@ -1290,26 +1419,36 @@ getToolingListView() {
                 if (f.size > 5242880) { alert(`File "${f.name}" melebihi batas maksimal 5MB.`); return; }
             }
             const results = []; let loaded = 0;
-            const done = () => {
+            const done = async () => {
                 if (loaded < fileArr.length) return;
                 const nameArr = results.map(r => r.name);
-                const dataArr = results.map(r => r.data);
-                afterRead(dataArr, nameArr);
+                const pathArr = results.map(r => r.path);
+                await afterRead(nameArr, pathArr);
             };
             fileArr.forEach(f => {
-                const reader = new FileReader();
-                reader.onload = e => { results.push({ name: f.name, data: e.target.result }); loaded++; done(); };
-                reader.readAsDataURL(f);
+                if (window.DTMS && window.DTMS.enabled()) {
+                    const path = window.DTMS.makePath('supplierTasks', taskId, f.name);
+                    window.DTMS.uploadFile('evidence', f, path).then(res => {
+                        results.push({ name: f.name, path: res.publicUrl || res.path });
+                        loaded++; done();
+                    }).catch(err => { console.error(err); loaded++; done(); });
+                } else {
+                    const reader = new FileReader();
+                    reader.onload = e => { results.push({ name: f.name, path: e.target.result }); loaded++; done(); };
+                    reader.readAsDataURL(f);
+                }
             });
         } else {
-            afterRead(null, null);
+            await afterRead(null, null);
         }
         this._taskEvidenceRemoved = [];
     }
 
     openTaskEvidence(taskId) {
         const t = this.data.supplierTasks.find(x => x.id === taskId);
-        if (t?.evidenceData) {
+        const urls = t?.evidencePath ? (Array.isArray(t.evidencePath) ? [...t.evidencePath] : [t.evidencePath]) : [];
+        if (urls.length === 0 && t?.evidenceData) {
+            // Legacy fallback for old in-memory data
             const data = Array.isArray(t.evidenceData) ? t.evidenceData : [t.evidenceData];
             const names = Array.isArray(t.evidence) ? t.evidence : [];
             if (data.length === 1) {
@@ -1324,6 +1463,22 @@ getToolingListView() {
                 return `<button onclick="document.querySelectorAll('iframe').forEach(f=>f.style.display='none');document.getElementById('f${i}').style.display='block';document.querySelectorAll('.tab-btn').forEach(b=>b.style.background='');this.style.background='#2563eb';this.style.color='#fff'" class="tab-btn" style="padding:8px 16px;border:1px solid #ccc;cursor:pointer;border-radius:6px 6px 0 0;background:#f1f5f9;font-size:13px">${n}</button>`;
             }).join('');
             const iframes = data.map((d, i) => `<iframe id="f${i}" src="${d}" style="width:100%;height:100%;border:0;${i > 0 ? 'display:none' : ''}"></iframe>`).join('');
+            w.document.write(`<html><head><title>Evidence - ${taskId}</title><style>body{margin:0;display:flex;flex-direction:column;height:100vh}nav{padding:8px;background:#f8fafc;border-bottom:1px solid #ccc;display:flex;gap:4px}.tab-btn:first-child{background:#2563eb;color:#fff}</style></head><body><nav>${tabs}</nav><div style="flex:1">${iframes}</div></body></html>`);
+            w.document.close();
+            return;
+        }
+        if (urls.length > 0) {
+            const names = t.evidence ? (Array.isArray(t.evidence) ? [...t.evidence] : [t.evidence]) : urls.map((_, i) => `File ${i + 1}`);
+            if (urls.length === 1) {
+                window.open(urls[0], '_blank');
+                return;
+            }
+            const w = window.open('', '_blank');
+            const tabs = urls.map((d, i) => {
+                const n = names[i] || `File ${i + 1}`;
+                return `<button onclick="document.querySelectorAll('iframe').forEach(f=>f.style.display='none');document.getElementById('f${i}').style.display='block';document.querySelectorAll('.tab-btn').forEach(b=>b.style.background='');this.style.background='#2563eb';this.style.color='#fff'" class="tab-btn" style="padding:8px 16px;border:1px solid #ccc;cursor:pointer;border-radius:6px 6px 0 0;background:#f1f5f9;font-size:13px">${n}</button>`;
+            }).join('');
+            const iframes = urls.map((d, i) => `<iframe id="f${i}" src="${d}" style="width:100%;height:100%;border:0;${i > 0 ? 'display:none' : ''}"></iframe>`).join('');
             w.document.write(`<html><head><title>Evidence - ${taskId}</title><style>body{margin:0;display:flex;flex-direction:column;height:100vh}nav{padding:8px;background:#f8fafc;border-bottom:1px solid #ccc;display:flex;gap:4px}.tab-btn:first-child{background:#2563eb;color:#fff}</style></head><body><nav>${tabs}</nav><div style="flex:1">${iframes}</div></body></html>`);
             w.document.close();
             return;
@@ -1503,12 +1658,16 @@ getToolingListView() {
         modal.innerHTML=`<div class="modal-content" style="max-width:500px"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-exchange-alt" style="color:var(--accent-color);margin-right:0.5rem"></i>Pindahkan Tooling</h3><button class="modal-close" onclick="app.closeModal('movement-modal')">&times;</button></div><div class="modal-body"><div class="form-group"><label class="form-label">Tooling</label><input class="form-control" value="${toolId} – ${toolName}" readonly style="background:#f1f5f9"></div><div class="form-group"><label class="form-label">Lokasi Tujuan <span style="color:var(--danger-color)">*</span></label><input type="text" id="mv-dest" class="form-control" placeholder="Masukkan lokasi tujuan..."></div><div class="form-group"><label class="form-label">Alasan Pemindahan <span style="color:var(--danger-color)">*</span></label><textarea id="mv-reason" class="form-control" rows="3" placeholder="Jelaskan alasan pemindahan..."></textarea></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="app.closeModal('movement-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitMovement('${toolId}')"><i class="fas fa-paper-plane"></i> Submit</button></div></div>`;
         document.body.appendChild(modal); document.body.style.overflow='hidden';
     }
-    submitMovement(toolId) {
+    async submitMovement(toolId) {
         const dest=document.getElementById('mv-dest')?.value, reason=document.getElementById('mv-reason')?.value?.trim();
         if(!reason){alert('Harap isi alasan pemindahan.');return;}
         const t=this.data.toolings.find(x=>x.id===toolId);
-        this.data.movementLogs.unshift({id:`MV-${Date.now()}`,toolId,toolName:t?.name||'',fromLocation:'-',toLocation:dest,date:new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}),reason,status:'Menunggu Persetujuan',requestedBy:this.currentUser.name});
-        this.closeModal('movement-modal'); alert(`? Permintaan pemindahan ${toolId} ke ${dest} berhasil diajukan!`); window.location.hash=`#tooling/${toolId}`; this.router();
+        const newLog={id:`MV-${Date.now()}`,toolId,toolName:t?.name||'',fromLocation:'-',toLocation:dest,date:new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}),reason,status:'Menunggu Persetujuan',requestedBy:this.currentUser.name};
+        this.data.movementLogs.unshift(newLog);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.insertMovementLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan pergerakan ke database.');}
+        }
+        this.closeModal('movement-modal'); alert(`Permintaan pemindahan ${toolId} ke ${dest} berhasil diajukan!`); window.location.hash=`#tooling/${toolId}`; this.router();
     }
 
     // ===== ADD TOOLING MODAL =====
@@ -1527,12 +1686,17 @@ getToolingListView() {
         this.initNumberFormat('at-qtyPerTooling');
         if(!this.currentUser.role.includes('Supplier')) this.initNumberFormat('at-qtyDepreciation');
     }
-    submitAddTooling() {
+    async submitAddTooling() {
         const v=id=>document.getElementById('at-'+id)?.value?.trim()||'';
         if(!v('name')||!v('pn')||!v('supplier')){alert('Harap isi field yang wajib (*).');return;}
         const newId=`T-${new Date().getFullYear()}-${String(this.data.toolings.length+1).padStart(3,'0')}`;
-        this.data.toolings.push({id:newId,name:v('name'),type:v('type')||'-',partNumber:v('pn'),partName:v('partName')||'-',model:v('model')||'-',supplier:v('supplier'),status:v('status')||'Aktif',condition:v('cond')||'Baik',owner:document.getElementById('at-owner')?.value||'Milik MII',lifetime:'0 / 1,000,000',maxShoot:this.parseFormattedNumber(v('maxShoot'))||0,lastMaintenance:'-',maker:v('maker')||'-',weight:v('weight')||'-',tonnage:v('tonnage')||'-',dimensions:v('dimensions')||'-',material:v('material')||'-',toolImage:'',toolImage2:'',partImage:'',depreciationType:'Tahun',depreciationValue:v('depreciationValue')||'5',qtyDepreciation:(this.parseFormattedNumber(v('qtyDepreciation'))?this.formatNumber(this.parseFormattedNumber(v('qtyDepreciation'))):'-'),paNumber:v('paNumber')||'-',paDocumentName:null,paDocumentData:null,drawingDiesName:null,drawingDiesData:null,price:v('price')||'-',notes:'-',pic:v('pic')||'-',picEmail:v('picEmail')||'-',picPhone:v('picPhone')||'-',qtyPerTooling:(this.parseFormattedNumber(v('qtyPerTooling'))?this.formatNumber(this.parseFormattedNumber(v('qtyPerTooling'))):'1'),supplierAddress:v('supplierAddress')||'-',mapUrl:v('mapUrl')||''});
-        this.closeModal('add-tooling-modal'); alert(`? Tooling ${newId} berhasil ditambahkan!`); window.location.hash='#tooling'; this.renderLayout(); this.router();
+        const supplierId = this._supplierIdByName(v('supplier'));
+        const newTool={id:newId,name:v('name'),type:v('type')||'-',partNumber:v('pn'),partName:v('partName')||'-',model:v('model')||'-',supplier:v('supplier'),supplierId:supplierId,supplierAddress:v('supplierAddress')||'-',status:v('status')||'Aktif',condition:v('cond')||'Baik',owner:document.getElementById('at-owner')?.value||'Milik MII',lifetime:'0 / 1,000,000',maxShoot:this.parseFormattedNumber(v('maxShoot'))||0,lastMaintenance:'-',maker:v('maker')||'-',weight:v('weight')||'-',tonnage:v('tonnage')||'-',dimensions:v('dimensions')||'-',material:v('material')||'-',toolImage:'',toolImage2:'',partImage:'',depreciationType:'Tahun',depreciationValue:v('depreciationValue')||'5',qtyDepreciation:(this.parseFormattedNumber(v('qtyDepreciation'))?this.formatNumber(this.parseFormattedNumber(v('qtyDepreciation'))):'-'),paNumber:v('paNumber')||'-',paDocumentName:null,paDocumentPath:null,drawingDiesName:null,drawingDiesPath:null,price:v('price')||'-',notes:'-',pic:v('pic')||'-',picEmail:v('picEmail')||'-',picPhone:v('picPhone')||'-',qtyPerTooling:(this.parseFormattedNumber(v('qtyPerTooling'))?this.formatNumber(this.parseFormattedNumber(v('qtyPerTooling'))):'1'),mapUrl:v('mapUrl')||''};
+        this.data.toolings.push(newTool);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.insertTooling(newTool);}catch(e){console.error(e);alert('Gagal menyimpan tooling ke database.');}
+        }
+        this.closeModal('add-tooling-modal'); alert(`Tooling ${newId} berhasil ditambahkan!`); window.location.hash='#tooling'; this.renderLayout(); this.router();
     }
 
     // ===== EDIT TOOLING MODAL =====
@@ -1552,19 +1716,23 @@ getToolingListView() {
         this.initNumberFormat('et-qtyPerTooling');
         if(!this.currentUser.role.includes('Supplier')) this.initNumberFormat('et-qtyDepreciation');
     }
-    submitEditTooling(toolId) {
+    async submitEditTooling(toolId) {
         const t=this.data.toolings.find(x=>x.id===toolId); if(!t) return;
         const v=id=>document.getElementById('et-'+id)?.value?.trim();
-        t.name=v('name')||t.name; t.type=v('type')||t.type; t.status=v('status')||t.status; t.condition=v('cond')||t.condition; t.model=v('model')||t.model; t.supplier=v('supplier')||t.supplier; t.supplierAddress=v('supplierAddress')||t.supplierAddress; t.mapUrl=v('mapUrl')||t.mapUrl; t.maker=v('maker')||t.maker; t.weight=v('weight')||t.weight; t.tonnage=v('tonnage')||t.tonnage; t.material=v('material')||t.material; t.price=v('price')||t.price; t.pic=v('pic')||t.pic; t.picEmail=v('picEmail')||t.picEmail; t.picPhone=v('picPhone')||t.picPhone;         t.maxShoot=this.parseFormattedNumber(v('maxShoot'))||t.maxShoot; t.qtyPerTooling=this.parseFormattedNumber(v('qtyPerTooling'))?this.formatNumber(this.parseFormattedNumber(v('qtyPerTooling'))):t.qtyPerTooling; if(!this.currentUser.role.includes('Supplier')){t.qtyDepreciation=this.parseFormattedNumber(v('qtyDepreciation'))?this.formatNumber(this.parseFormattedNumber(v('qtyDepreciation'))):t.qtyDepreciation; t.depreciationValue=v('depreciationValue')||t.depreciationValue;}
-        this.closeModal('edit-tooling-modal'); alert(`? Data tooling ${toolId} berhasil diperbarui!`); document.getElementById('app-layout')?.remove(); this.router();
+        t.name=v('name')||t.name; t.type=v('type')||t.type; t.status=v('status')||t.status; t.condition=v('cond')||t.condition; t.model=v('model')||t.model; t.supplier=v('supplier')||t.supplier; t.supplierId=this._supplierIdByName(t.supplier); t.supplierAddress=v('supplierAddress')||t.supplierAddress; t.mapUrl=v('mapUrl')||t.mapUrl; t.maker=v('maker')||t.maker; t.weight=v('weight')||t.weight; t.tonnage=v('tonnage')||t.tonnage; t.material=v('material')||t.material; t.price=v('price')||t.price; t.pic=v('pic')||t.pic; t.picEmail=v('picEmail')||t.picEmail; t.picPhone=v('picPhone')||t.picPhone;         t.maxShoot=this.parseFormattedNumber(v('maxShoot'))||t.maxShoot; t.qtyPerTooling=this.parseFormattedNumber(v('qtyPerTooling'))?this.formatNumber(this.parseFormattedNumber(v('qtyPerTooling'))):t.qtyPerTooling; if(!this.currentUser.role.includes('Supplier')){t.qtyDepreciation=this.parseFormattedNumber(v('qtyDepreciation'))?this.formatNumber(this.parseFormattedNumber(v('qtyDepreciation'))):t.qtyDepreciation; t.depreciationValue=v('depreciationValue')||t.depreciationValue;}
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.updateTooling(toolId, t);}catch(e){console.error(e);alert('Gagal memperbarui tooling di database.');}
+        }
+        this.closeModal('edit-tooling-modal'); alert(`Data tooling ${toolId} berhasil diperbarui!`); document.getElementById('app-layout')?.remove(); this.router();
     }
 
     // ===== EVIDENCE VIEWER =====
     openEvidence(ticketId) {
         const l=this.data.maintenanceLogs.find(x=>x.id===ticketId);
-        if(l?.evidenceData){
+        const urls=l?.evidencePath ? (Array.isArray(l.evidencePath)?[...l.evidencePath]:[l.evidencePath]) : [];
+        if(urls.length===0 && l?.evidenceData){
             const data=Array.isArray(l.evidenceData)?l.evidenceData:[l.evidenceData];
-            const names=Array.isArray(l.evidence)?l.evidence:[]; 
+            const names=Array.isArray(l.evidence)?l.evidence:[];
             if(data.length===1){
                 const w=window.open('','_blank');
                 w.document.write(`<html><head><title>Evidence - ${ticketId}</title><style>body{margin:0;height:100vh}iframe{width:100%;height:100%;border:0}</style></head><body><iframe src="${data[0]}"></iframe></body></html>`);
@@ -1577,6 +1745,19 @@ getToolingListView() {
                 return `<button onclick="document.querySelectorAll('iframe').forEach(f=>f.style.display='none');document.getElementById('f${i}').style.display='block';document.querySelectorAll('.tab-btn').forEach(b=>b.style.background='');this.style.background='#2563eb';this.style.color='#fff'" class="tab-btn" style="padding:8px 16px;border:1px solid #ccc;cursor:pointer;border-radius:6px 6px 0 0;background:#f1f5f9;font-size:13px">${n}</button>`;
             }).join('');
             const iframes=data.map((d,i)=>`<iframe id="f${i}" src="${d}" style="width:100%;height:100%;border:0;${i>0?'display:none':''}"></iframe>`).join('');
+            w.document.write(`<html><head><title>Evidence - ${ticketId}</title><style>body{margin:0;display:flex;flex-direction:column;height:100vh}nav{padding:8px;background:#f8fafc;border-bottom:1px solid #ccc;display:flex;gap:4px}.tab-btn:first-child{background:#2563eb;color:#fff}</style></head><body><nav>${tabs}</nav><div style="flex:1">${iframes}</div></body></html>`);
+            w.document.close();
+            return;
+        }
+        if(urls.length>0){
+            const names=l.evidence?(Array.isArray(l.evidence)?[...l.evidence]:[l.evidence]):urls.map((_,i)=>`File ${i+1}`);
+            if(urls.length===1){window.open(urls[0],'_blank');return;}
+            const w=window.open('','_blank');
+            const tabs=urls.map((d,i)=>{
+                const n=names[i]||`File ${i+1}`;
+                return `<button onclick="document.querySelectorAll('iframe').forEach(f=>f.style.display='none');document.getElementById('f${i}').style.display='block';document.querySelectorAll('.tab-btn').forEach(b=>b.style.background='');this.style.background='#2563eb';this.style.color='#fff'" class="tab-btn" style="padding:8px 16px;border:1px solid #ccc;cursor:pointer;border-radius:6px 6px 0 0;background:#f1f5f9;font-size:13px">${n}</button>`;
+            }).join('');
+            const iframes=urls.map((d,i)=>`<iframe id="f${i}" src="${d}" style="width:100%;height:100%;border:0;${i>0?'display:none':''}"></iframe>`).join('');
             w.document.write(`<html><head><title>Evidence - ${ticketId}</title><style>body{margin:0;display:flex;flex-direction:column;height:100vh}nav{padding:8px;background:#f8fafc;border-bottom:1px solid #ccc;display:flex;gap:4px}.tab-btn:first-child{background:#2563eb;color:#fff}</style></head><body><nav>${tabs}</nav><div style="flex:1">${iframes}</div></body></html>`);
             w.document.close();
             return;
@@ -1627,21 +1808,35 @@ getToolingListView() {
     viewPaDocument(toolId) {
         this.removePaContextMenu();
         const t = this.data.toolings.find(x => x.id === toolId);
-        if (!t?.paDocumentData) { alert('Dokumen belum tersedia.'); return; }
-        const data=Array.isArray(t.paDocumentData)?t.paDocumentData:[t.paDocumentData];
-        const names=Array.isArray(t.paDocumentName)?t.paDocumentName:[];
-        if(data.length===1){
-            const w = window.open('', '_blank');
-            w.document.write(`<html><head><title>Dokumen PA - ${t.id}</title><style>body{margin:0;height:100vh}iframe{width:100%;height:100%;border:0}</style></head><body><iframe src="${data[0]}"></iframe></body></html>`);
+        const urls=t?.paDocumentPath ? (Array.isArray(t.paDocumentPath)?[...t.paDocumentPath]:[t.paDocumentPath]) : [];
+        if(urls.length===0 && !t?.paDocumentData){alert('Dokumen belum tersedia.');return;}
+        if(urls.length===0 && t?.paDocumentData){
+            const data=Array.isArray(t.paDocumentData)?t.paDocumentData:[t.paDocumentData];
+            const names=Array.isArray(t.paDocumentName)?t.paDocumentName:[];
+            if(data.length===1){
+                const w = window.open('', '_blank');
+                w.document.write(`<html><head><title>Dokumen PA - ${t.id}</title><style>body{margin:0;height:100vh}iframe{width:100%;height:100%;border:0}</style></head><body><iframe src="${data[0]}"></iframe></body></html>`);
+                w.document.close();
+                return;
+            }
+            const w=window.open('','_blank');
+            const tabs=data.map((d,i)=>{
+                const n=names[i]||`File ${i+1}`;
+                return `<button onclick="document.querySelectorAll('iframe').forEach(f=>f.style.display='none');document.getElementById('f${i}').style.display='block';document.querySelectorAll('.tab-btn').forEach(b=>b.style.background='');this.style.background='#2563eb';this.style.color='#fff'" class="tab-btn" style="padding:8px 16px;border:1px solid #ccc;cursor:pointer;border-radius:6px 6px 0 0;background:#f1f5f9;font-size:13px">${n}</button>`;
+            }).join('');
+            const iframes=data.map((d,i)=>`<iframe id="f${i}" src="${d}" style="width:100%;height:100%;border:0;${i>0?'display:none':''}"></iframe>`).join('');
+            w.document.write(`<html><head><title>Dokumen PA - ${t.id}</title><style>body{margin:0;display:flex;flex-direction:column;height:100vh}nav{padding:8px;background:#f8fafc;border-bottom:1px solid #ccc;display:flex;gap:4px}.tab-btn:first-child{background:#2563eb;color:#fff}</style></head><body><nav>${tabs}</nav><div style="flex:1">${iframes}</div></body></html>`);
             w.document.close();
             return;
         }
+        const names=t.paDocumentName?(Array.isArray(t.paDocumentName)?[...t.paDocumentName]:[t.paDocumentName]):urls.map((_,i)=>`File ${i+1}`);
+        if(urls.length===1){window.open(urls[0],'_blank');return;}
         const w=window.open('','_blank');
-        const tabs=data.map((d,i)=>{
+        const tabs=urls.map((d,i)=>{
             const n=names[i]||`File ${i+1}`;
             return `<button onclick="document.querySelectorAll('iframe').forEach(f=>f.style.display='none');document.getElementById('f${i}').style.display='block';document.querySelectorAll('.tab-btn').forEach(b=>b.style.background='');this.style.background='#2563eb';this.style.color='#fff'" class="tab-btn" style="padding:8px 16px;border:1px solid #ccc;cursor:pointer;border-radius:6px 6px 0 0;background:#f1f5f9;font-size:13px">${n}</button>`;
         }).join('');
-        const iframes=data.map((d,i)=>`<iframe id="f${i}" src="${d}" style="width:100%;height:100%;border:0;${i>0?'display:none':''}"></iframe>`).join('');
+        const iframes=urls.map((d,i)=>`<iframe id="f${i}" src="${d}" style="width:100%;height:100%;border:0;${i>0?'display:none':''}"></iframe>`).join('');
         w.document.write(`<html><head><title>Dokumen PA - ${t.id}</title><style>body{margin:0;display:flex;flex-direction:column;height:100vh}nav{padding:8px;background:#f8fafc;border-bottom:1px solid #ccc;display:flex;gap:4px}.tab-btn:first-child{background:#2563eb;color:#fff}</style></head><body><nav>${tabs}</nav><div style="flex:1">${iframes}</div></body></html>`);
         w.document.close();
     }
@@ -1675,7 +1870,7 @@ getToolingListView() {
         }
     }
 
-    submitPaDocument(toolId) {
+    async submitPaDocument(toolId) {
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const fileInput = document.getElementById('pa-file');
@@ -1686,30 +1881,46 @@ getToolingListView() {
         }
         const results = [];
         let loaded = 0;
-        const done = () => {
+        const done = async () => {
             if (loaded < files.length) return;
-            t.paDocumentData = results.length === 1 ? results[0].data : results.map(r => r.data);
+            t.paDocumentPath = results.length === 1 ? results[0].path : results.map(r => r.path);
             t.paDocumentName = results.length === 1 ? results[0].name : results.map(r => r.name);
+            delete t.paDocumentData;
+            if(window.DTMS && window.DTMS.enabled()){
+                try{await window.DTMS.updateTooling(toolId, t);}catch(e){console.error(e);alert('Gagal menyimpan dokumen PA ke database.');}
+            }
             this.closeModal('pa-upload-modal');
             this.closeModal('detail-modal');
             alert(`${results.length} dokumen berhasil diunggah!`);
             this.renderLayout(); this.router();
         };
         Array.from(files).forEach(f => {
-            const reader = new FileReader();
-            reader.onload = e => { results.push({ name: f.name, data: e.target.result }); loaded++; done(); };
-            reader.readAsDataURL(f);
+            if(window.DTMS && window.DTMS.enabled()){
+                const path=window.DTMS.makePath('documents', toolId, f.name);
+                window.DTMS.uploadFile('documents', f, path).then(res => {
+                    results.push({ name: f.name, path: res.publicUrl || res.path });
+                    loaded++; done();
+                }).catch(err => { console.error(err); loaded++; done(); });
+            }else{
+                const reader = new FileReader();
+                reader.onload = e => { results.push({ name: f.name, path: e.target.result }); loaded++; done(); };
+                reader.readAsDataURL(f);
+            }
         });
     }
 
-    removePaDocument(toolId) {
+    async removePaDocument(toolId) {
         this.removePaContextMenu();
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const docName = Array.isArray(t.paDocumentName) ? t.paDocumentName.join(', ') : t.paDocumentName;
         if (!confirm(`Hapus dokumen "${docName}"?`)) return;
         t.paDocumentName = null;
-        t.paDocumentData = null;
+        t.paDocumentPath = null;
+        delete t.paDocumentData;
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.updateTooling(toolId, t);}catch(e){console.error(e);alert('Gagal menghapus dokumen PA di database.');}
+        }
         this.closeModal('detail-modal');
         alert('Dokumen berhasil dihapus.');
         this.renderLayout(); this.router();
@@ -1744,7 +1955,7 @@ getToolingListView() {
         }
     }
 
-    submitDrawingDies(toolId) {
+    async submitDrawingDies(toolId) {
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const fileInput = document.getElementById('dd-file');
@@ -1755,49 +1966,79 @@ getToolingListView() {
         }
         const results = [];
         let loaded = 0;
-        const done = () => {
+        const done = async () => {
             if (loaded < files.length) return;
-            t.drawingDiesData = results.length === 1 ? results[0].data : results.map(r => r.data);
+            t.drawingDiesPath = results.length === 1 ? results[0].path : results.map(r => r.path);
             t.drawingDiesName = results.length === 1 ? results[0].name : results.map(r => r.name);
+            delete t.drawingDiesData;
+            if(window.DTMS && window.DTMS.enabled()){
+                try{await window.DTMS.updateTooling(toolId, t);}catch(e){console.error(e);alert('Gagal menyimpan drawing ke database.');}
+            }
             this.closeModal('drawing-dies-modal');
             alert(`${results.length} drawing berhasil diunggah!`);
             document.getElementById('app-layout')?.remove(); this.router();
         };
         Array.from(files).forEach(f => {
-            const reader = new FileReader();
-            reader.onload = e => { results.push({ name: f.name, data: e.target.result }); loaded++; done(); };
-            reader.readAsDataURL(f);
+            if(window.DTMS && window.DTMS.enabled()){
+                const path=window.DTMS.makePath('documents', toolId, f.name);
+                window.DTMS.uploadFile('documents', f, path).then(res => {
+                    results.push({ name: f.name, path: res.publicUrl || res.path });
+                    loaded++; done();
+                }).catch(err => { console.error(err); loaded++; done(); });
+            }else{
+                const reader = new FileReader();
+                reader.onload = e => { results.push({ name: f.name, path: e.target.result }); loaded++; done(); };
+                reader.readAsDataURL(f);
+            }
         });
     }
 
     viewDrawingDies(toolId) {
         const t = this.data.toolings.find(x => x.id === toolId);
-        if (!t?.drawingDiesData) { alert('Drawing belum tersedia.'); return; }
-        const data = Array.isArray(t.drawingDiesData) ? t.drawingDiesData : [t.drawingDiesData];
-        const names = Array.isArray(t.drawingDiesName) ? t.drawingDiesName : [];
-        if (data.length === 1) {
+        const urls=t?.drawingDiesPath ? (Array.isArray(t.drawingDiesPath)?[...t.drawingDiesPath]:[t.drawingDiesPath]) : [];
+        if(urls.length===0 && !t?.drawingDiesData){alert('Drawing belum tersedia.');return;}
+        if(urls.length===0 && t?.drawingDiesData){
+            const data = Array.isArray(t.drawingDiesData) ? t.drawingDiesData : [t.drawingDiesData];
+            const names = Array.isArray(t.drawingDiesName) ? t.drawingDiesName : [];
+            if (data.length === 1) {
+                const w = window.open('', '_blank');
+                w.document.write(`<html><head><title>Drawing Dies - ${t.id}</title><style>body{margin:0;height:100vh}iframe{width:100%;height:100%;border:0}</style></head><body><iframe src="${data[0]}"></iframe></body></html>`);
+                w.document.close();
+                return;
+            }
             const w = window.open('', '_blank');
-            w.document.write(`<html><head><title>Drawing Dies - ${t.id}</title><style>body{margin:0;height:100vh}iframe{width:100%;height:100%;border:0}</style></head><body><iframe src="${data[0]}"></iframe></body></html>`);
+            const tabs = data.map((d, i) => {
+                const n = names[i] || `File ${i + 1}`;
+                return `<button onclick="document.querySelectorAll('iframe').forEach(f=>f.style.display='none');document.getElementById('f${i}').style.display='block';document.querySelectorAll('.tab-btn').forEach(b=>b.style.background='');this.style.background='#2563eb';this.style.color='#fff'" class="tab-btn" style="padding:8px 16px;border:1px solid #ccc;cursor:pointer;border-radius:6px 6px 0 0;background:#f1f5f9;font-size:13px">${n}</button>`;
+            }).join('');
+            const iframes = data.map((d, i) => `<iframe id="f${i}" src="${d}" style="width:100%;height:100%;border:0;${i > 0 ? 'display:none' : ''}"></iframe>`).join('');
+            w.document.write(`<html><head><title>Drawing Dies - ${t.id}</title><style>body{margin:0;display:flex;flex-direction:column;height:100vh}nav{padding:8px;background:#f8fafc;border-bottom:1px solid #ccc;display:flex;gap:4px}.tab-btn:first-child{background:#2563eb;color:#fff}</style></head><body><nav>${tabs}</nav><div style="flex:1">${iframes}</div></body></html>`);
             w.document.close();
             return;
         }
+        const names=t.drawingDiesName?(Array.isArray(t.drawingDiesName)?[...t.drawingDiesName]:[t.drawingDiesName]):urls.map((_,i)=>`File ${i+1}`);
+        if(urls.length===1){window.open(urls[0],'_blank');return;}
         const w = window.open('', '_blank');
-        const tabs = data.map((d, i) => {
+        const tabs = urls.map((d, i) => {
             const n = names[i] || `File ${i + 1}`;
             return `<button onclick="document.querySelectorAll('iframe').forEach(f=>f.style.display='none');document.getElementById('f${i}').style.display='block';document.querySelectorAll('.tab-btn').forEach(b=>b.style.background='');this.style.background='#2563eb';this.style.color='#fff'" class="tab-btn" style="padding:8px 16px;border:1px solid #ccc;cursor:pointer;border-radius:6px 6px 0 0;background:#f1f5f9;font-size:13px">${n}</button>`;
         }).join('');
-        const iframes = data.map((d, i) => `<iframe id="f${i}" src="${d}" style="width:100%;height:100%;border:0;${i > 0 ? 'display:none' : ''}"></iframe>`).join('');
+        const iframes = urls.map((d, i) => `<iframe id="f${i}" src="${d}" style="width:100%;height:100%;border:0;${i > 0 ? 'display:none' : ''}"></iframe>`).join('');
         w.document.write(`<html><head><title>Drawing Dies - ${t.id}</title><style>body{margin:0;display:flex;flex-direction:column;height:100vh}nav{padding:8px;background:#f8fafc;border-bottom:1px solid #ccc;display:flex;gap:4px}.tab-btn:first-child{background:#2563eb;color:#fff}</style></head><body><nav>${tabs}</nav><div style="flex:1">${iframes}</div></body></html>`);
         w.document.close();
     }
 
-    removeDrawingDies(toolId) {
+    async removeDrawingDies(toolId) {
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const docName = Array.isArray(t.drawingDiesName) ? t.drawingDiesName.join(', ') : t.drawingDiesName;
         if (!confirm(`Hapus drawing "${docName}"?`)) return;
         t.drawingDiesName = null;
-        t.drawingDiesData = null;
+        t.drawingDiesPath = null;
+        delete t.drawingDiesData;
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.updateTooling(toolId, t);}catch(e){console.error(e);alert('Gagal menghapus drawing di database.');}
+        }
         alert('Drawing berhasil dihapus.');
         document.getElementById('app-layout')?.remove(); this.router();
     }
@@ -1832,13 +2073,28 @@ getToolingListView() {
         }
     }
 
-    submitPhotoUpload(toolId, fieldType) {
+    async submitPhotoUpload(toolId, fieldType) {
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const fileInput = document.getElementById('pu-file');
         const file = fileInput?.files?.[0];
         if (!file) { alert('Harap pilih foto terlebih dahulu.'); return; }
         if (file.size > 5242880) { alert(`File "${file.name}" melebihi batas maksimal 5MB.`); return; }
+        if (window.DTMS && window.DTMS.enabled()) {
+            const path = window.DTMS.makePath('images', toolId + '/' + fieldType, file.name);
+            const res = await window.DTMS.uploadFile('images', file, path);
+            if (res.publicUrl) {
+                t[fieldType] = res.publicUrl;
+            } else {
+                alert('Gagal mengunggah foto ke storage.');
+                return;
+            }
+            try { await window.DTMS.updateTooling(toolId, t); } catch (e) { console.error(e); alert('Gagal menyimpan URL foto ke database.'); }
+            this.closeModal('photo-upload-modal');
+            alert('Foto berhasil diunggah!');
+            document.getElementById('app-layout')?.remove(); this.router();
+            return;
+        }
         const reader = new FileReader();
         reader.onload = e => {
             t[fieldType] = e.target.result;
@@ -1849,12 +2105,15 @@ getToolingListView() {
         reader.readAsDataURL(file);
     }
 
-    removePhoto(toolId, fieldType) {
+    async removePhoto(toolId, fieldType) {
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const labels = { partImage: 'Foto Part', toolImage: 'Foto Tooling/Dies 1', toolImage2: 'Foto Tooling/Dies 2' };
         if (!confirm(`Hapus ${labels[fieldType] || 'foto'}?`)) return;
         t[fieldType] = '';
+        if (window.DTMS && window.DTMS.enabled()) {
+            try { await window.DTMS.updateTooling(toolId, t); } catch (e) { console.error(e); alert('Gagal menghapus foto di database.'); }
+        }
         alert('Foto berhasil dihapus.');
         document.getElementById('app-layout')?.remove(); this.router();
     }
@@ -1884,7 +2143,7 @@ getToolingListView() {
             else el.style.display='none';
         });
     }
-    submitAddRepair(toolId) {
+    async submitAddRepair(toolId) {
         const t=this.data.toolings.find(x=>x.id===toolId); if(!t) return;
         const dateStart=document.getElementById('rp-dateStart')?.value;
         const dateEnd=document.getElementById('rp-dateEnd')?.value;
@@ -1894,40 +2153,54 @@ getToolingListView() {
         const fileInput=document.getElementById('rp-evidence');
         const files=fileInput?.files;
         if(!dateStart||!desc){alert('Harap isi tanggal mulai dan deskripsi perbaikan.');return;}
-        const afterRead=(evidenceArr, nameArr)=>{
-            const year=new Date().getFullYear();
-            const maxId=this.data.maintenanceLogs.reduce((max,l)=>{
-                const m=l.id.match(/MR-(\d+)-(\d+)/);
-                return m&&m[1]===String(year)?Math.max(max,parseInt(m[2])):max;
-            },0);
-            const newId=`MR-${year}-${String(maxId+1).padStart(3,'0')}`;
-            const fmtDateStart=new Date(dateStart).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
-            const fmtDateEnd=dateEnd?new Date(dateEnd).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):null;
-            this.data.maintenanceLogs.unshift({
+        const year=new Date().getFullYear();
+        const maxId=this.data.maintenanceLogs.reduce((max,l)=>{
+            const m=l.id.match(/MR-(\d+)-(\d+)/);
+            return m&&m[1]===String(year)?Math.max(max,parseInt(m[2])):max;
+        },0);
+        const newId=`MR-${year}-${String(maxId+1).padStart(3,'0')}`;
+        const fmtDateStart=new Date(dateStart).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+        const fmtDateEnd=dateEnd?new Date(dateEnd).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):null;
+        const afterRead=async(nameArr, pathArr)=>{
+            const newLog={
                 id:newId,toolId,toolName:t.name,dateStart:fmtDateStart,dateEnd:fmtDateEnd,type,description:desc,status,
-                evidence:nameArr||'',evidenceData:evidenceArr||'',requestedBy:this.currentUser.name
-            });
+                evidence:nameArr? (nameArr.length===1?nameArr[0]:nameArr.join(', ')) : '',
+                evidencePath:pathArr? (pathArr.length===1?pathArr[0]:pathArr.join(', ')) : '',
+                requestedBy:this.currentUser.name
+            };
+            this.data.maintenanceLogs.unshift(newLog);
+            if(window.DTMS && window.DTMS.enabled()){
+                try{await window.DTMS.insertMaintenanceLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan perbaikan ke database.');}
+            }
             this.closeModal('add-repair-modal');
-            alert(`? Riwayat perbaikan ${newId} berhasil ditambahkan!`);
+            alert(`Riwayat perbaikan ${newId} berhasil ditambahkan!`);
             document.getElementById('app-layout')?.remove(); this.router();
         };
         if(files&&files.length>0){
             const fileArr=Array.from(files);
             for(const f of fileArr){if(f.size>10485760){alert(`File "${f.name}" melebihi batas maksimal 10MB.`);return;}}
             const results=[];let loaded=0;
-            const done=()=>{
+            const done=async()=>{
                 if(loaded<fileArr.length)return;
                 const nameArr=results.map(r=>r.name);
-                const dataArr=results.map(r=>r.data);
-                afterRead(dataArr,nameArr);
+                const pathArr=results.map(r=>r.path);
+                await afterRead(nameArr,pathArr);
             };
             fileArr.forEach(f=>{
-                const reader=new FileReader();
-                reader.onload=e=>{results.push({name:f.name,data:e.target.result});loaded++;done();};
-                reader.readAsDataURL(f);
+                if(window.DTMS && window.DTMS.enabled()){
+                    const path=window.DTMS.makePath('maintenanceLogs',newId,f.name);
+                    window.DTMS.uploadFile('evidence',f,path).then(res=>{
+                        results.push({name:f.name,path:res.publicUrl||res.path});
+                        loaded++;done();
+                    }).catch(err=>{console.error(err);loaded++;done();});
+                }else{
+                    const reader=new FileReader();
+                    reader.onload=e=>{results.push({name:f.name,path:e.target.result});loaded++;done();};
+                    reader.readAsDataURL(f);
+                }
             });
         }else{
-            afterRead(null,null);
+            await afterRead(null,null);
         }
     }
 
@@ -1955,7 +2228,7 @@ getToolingListView() {
             else el.style.display='none';
         });
     }
-    submitEditRepair(logId) {
+    async submitEditRepair(logId) {
         const l=this.data.maintenanceLogs.find(x=>x.id===logId); if(!l) return;
         const dateStart=document.getElementById('erp-dateStart')?.value;
         const dateEnd=document.getElementById('erp-dateEnd')?.value;
@@ -1965,41 +2238,56 @@ getToolingListView() {
         const fileInput=document.getElementById('erp-evidence');
         const files=fileInput?.files;
         if(!dateStart||!desc){alert('Harap isi tanggal mulai dan deskripsi perbaikan.');return;}
-        const afterRead=(evidenceArr, nameArr)=>{
+        const afterRead=async(nameArr, pathArr)=>{
             const fmtDateStart=new Date(dateStart).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
             const fmtDateEnd=dateEnd?new Date(dateEnd).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):null;
             l.dateStart=fmtDateStart; l.dateEnd=fmtDateEnd; l.type=type; l.description=desc; l.status=status;
-            if(evidenceArr){l.evidence=nameArr;l.evidenceData=evidenceArr;}
+            if(nameArr){l.evidence=nameArr.length===1?nameArr[0]:nameArr.join(', '); l.evidencePath=pathArr.length===1?pathArr[0]:pathArr.join(', ');}
+            delete l.evidenceData;
+            if(window.DTMS && window.DTMS.enabled()){
+                try{await window.DTMS.updateMaintenanceLog(logId, l);}catch(e){console.error(e);alert('Gagal memperbarui perbaikan di database.');}
+            }
             this.closeModal('edit-repair-modal');
-            alert(`? Riwayat perbaikan ${logId} berhasil diperbarui!`);
+            alert(`Riwayat perbaikan ${logId} berhasil diperbarui!`);
             document.getElementById('app-layout')?.remove(); this.router();
         };
         if(files&&files.length>0){
             const fileArr=Array.from(files);
             for(const f of fileArr){if(f.size>10485760){alert(`File "${f.name}" melebihi batas maksimal 10MB.`);return;}}
             const results=[];let loaded=0;
-            const done=()=>{
+            const done=async()=>{
                 if(loaded<fileArr.length)return;
                 const nameArr=results.map(r=>r.name);
-                const dataArr=results.map(r=>r.data);
-                afterRead(dataArr,nameArr);
+                const pathArr=results.map(r=>r.path);
+                await afterRead(nameArr,pathArr);
             };
             fileArr.forEach(f=>{
-                const reader=new FileReader();
-                reader.onload=e=>{results.push({name:f.name,data:e.target.result});loaded++;done();};
-                reader.readAsDataURL(f);
+                if(window.DTMS && window.DTMS.enabled()){
+                    const path=window.DTMS.makePath('maintenanceLogs',logId,f.name);
+                    window.DTMS.uploadFile('evidence',f,path).then(res=>{
+                        results.push({name:f.name,path:res.publicUrl||res.path});
+                        loaded++;done();
+                    }).catch(err=>{console.error(err);loaded++;done();});
+                }else{
+                    const reader=new FileReader();
+                    reader.onload=e=>{results.push({name:f.name,path:e.target.result});loaded++;done();};
+                    reader.readAsDataURL(f);
+                }
             });
         }else{
-            afterRead(null,null);
+            await afterRead(null,null);
         }
     }
 
     // ===== REPAIR CRUD: DELETE =====
-    submitDeleteRepair(logId, toolId) {
+    async submitDeleteRepair(logId, toolId) {
         const idx=this.data.maintenanceLogs.findIndex(x=>x.id===logId);
         if(idx===-1) return;
         if(!confirm(`Yakin ingin menghapus riwayat perbaikan ${logId}?`)) return;
         this.data.maintenanceLogs.splice(idx,1);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.deleteMaintenanceLog(logId);}catch(e){console.error(e);alert('Gagal menghapus perbaikan di database.');}
+        }
         alert(`Riwayat perbaikan ${logId} berhasil dihapus.`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
@@ -2012,7 +2300,7 @@ getToolingListView() {
         document.body.appendChild(modal); document.body.style.overflow='hidden';
     }
 
-    submitAddUser() {
+    async submitAddUser() {
         const username=document.getElementById('au-username')?.value?.trim();
         const name=document.getElementById('au-name')?.value?.trim();
         const role=document.getElementById('au-role')?.value;
@@ -2021,9 +2309,17 @@ getToolingListView() {
         if(!username||!name){alert('Username dan Nama Lengkap wajib diisi.');return;}
         if(this.data.users.some(x=>x.username===username)){alert(`Username "${username}" sudah digunakan.`);return;}
         const maxId=this.data.users.reduce((m,x)=>Math.max(m,x.id),0);
-        this.data.users.push({id:maxId+1,username,name,role,supplierId:supplierId||undefined,company:company||undefined});
+        const newUser={id:maxId+1,username,email:`${username}@dtms.local`,name,role,supplierId:supplierId||undefined,company:company||undefined};
+        this.data.users.push(newUser);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{
+                await window.DTMS.insertUser(newUser);
+                const meta={username,name,role,company,supplierId:supplierId||null};
+                await window.DTMS.signUp(newUser.email, 'password123', meta);
+            }catch(e){console.error(e);alert('Gagal menyimpan pengguna ke database/auth.');}
+        }
         this.closeModal('add-user-modal');
-        alert(`Pengguna ${username} berhasil ditambahkan.`);
+        alert(`Pengguna ${username} berhasil ditambahkan. Password default: password123`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
 
@@ -2037,7 +2333,7 @@ getToolingListView() {
         document.body.appendChild(modal); document.body.style.overflow='hidden';
     }
 
-    submitEditUser(userId) {
+    async submitEditUser(userId) {
         const u=this.data.users.find(x=>x.id===userId);
         if(!u)return;
         const name=document.getElementById('eu-name')?.value?.trim();
@@ -2046,18 +2342,24 @@ getToolingListView() {
         const company=document.getElementById('eu-company')?.value?.trim()||'';
         if(!name){alert('Nama Lengkap wajib diisi.');return;}
         u.name=name; u.role=role; u.supplierId=supplierId||undefined; u.company=company||undefined;
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.updateUser(userId, u);}catch(e){console.error(e);alert('Gagal memperbarui pengguna di database.');}
+        }
         this.closeModal('edit-user-modal');
         alert(`Data pengguna ${u.username} berhasil diperbarui.`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
 
-    submitDeleteUser(userId) {
+    async submitDeleteUser(userId) {
         const idx=this.data.users.findIndex(x=>x.id===userId);
         if(idx===-1)return;
         const u=this.data.users[idx];
         if(u.username==='admin'){alert('User admin tidak dapat dihapus.');return;}
         if(!confirm(`Yakin ingin menghapus pengguna "${u.username}" (${u.name})?`))return;
         this.data.users.splice(idx,1);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.deleteUser(userId);}catch(e){console.error(e);alert('Gagal menghapus pengguna di database.');}
+        }
         alert(`Pengguna ${u.username} berhasil dihapus.`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
@@ -2241,7 +2543,7 @@ getToolingListView() {
         this.initNumberFormat('sh-count');
     }
 
-    submitAddShoot(toolId) {
+    async submitAddShoot(toolId) {
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const inputDate = document.getElementById('sh-tanggal')?.value;
@@ -2255,7 +2557,11 @@ getToolingListView() {
             return m ? Math.max(max, parseInt(m[1])) : max;
         }, 0);
         const newId = `SH-${String(maxId + 1).padStart(3, '0')}`;
-        this.data.shootLogs.push({ id: newId, toolId, month: date, inputDate, shootCount: count });
+        const newLog={ id: newId, toolId, month: date, inputDate, shootCount: count };
+        this.data.shootLogs.push(newLog);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.insertShootLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan shoot log ke database.');}
+        }
         const logs = this.data.shootLogs.filter(l => l.toolId === toolId).sort((a, b) => a.month.localeCompare(b.month));
         const maxLife = t.maxShoot || 1000000;
         let cum = 0; logs.forEach(l => cum += l.shootCount);
@@ -2278,7 +2584,7 @@ getToolingListView() {
         this.initNumberFormat('esh-count');
     }
 
-    submitEditShoot(shootId) {
+    async submitEditShoot(shootId) {
         const l = this.data.shootLogs.find(x => x.id === shootId);
         if (!l) return;
         const inputDate = document.getElementById('esh-tanggal')?.value;
@@ -2288,6 +2594,9 @@ getToolingListView() {
         const allLogs = (this.data.shootLogs || []).filter(x => x.toolId === l.toolId && x.id !== shootId);
         if (allLogs.some(x => x.month === date)) { alert(`Bulan ${date} sudah ada data shoot. Silakan edit data yang sudah ada.`); return; }
         l.month = date; l.inputDate = inputDate; l.shootCount = count;
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.updateShootLog(shootId, l);}catch(e){console.error(e);alert('Gagal memperbarui shoot log di database.');}
+        }
         const t = this.data.toolings.find(x => x.id === l.toolId);
         if (t) {
             const logs = this.data.shootLogs.filter(x => x.toolId === l.toolId).sort((a, b) => a.month.localeCompare(b.month));
@@ -2300,11 +2609,14 @@ getToolingListView() {
         document.getElementById('app-layout')?.remove(); this.router();
     }
 
-    submitDeleteShoot(shootId, toolId) {
+    async submitDeleteShoot(shootId, toolId) {
         const idx = this.data.shootLogs.findIndex(x => x.id === shootId);
         if (idx === -1) return;
         if (!confirm(`Yakin ingin menghapus riwayat shoot ${shootId}?`)) return;
         this.data.shootLogs.splice(idx, 1);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.deleteShootLog(shootId);}catch(e){console.error(e);alert('Gagal menghapus shoot log di database.');}
+        }
         const t = this.data.toolings.find(x => x.id === toolId);
         if (t) {
             const logs = this.data.shootLogs.filter(x => x.toolId === toolId).sort((a, b) => a.month.localeCompare(b.month));
@@ -2343,7 +2655,7 @@ getToolingListView() {
         document.body.appendChild(modal); document.body.style.overflow = 'hidden';
         this.initNumberFormat('ap-ok');
     }
-    submitAddProduction(toolId) {
+    async submitAddProduction(toolId) {
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const shootLogId = document.getElementById('ap-shoot')?.value;
@@ -2356,7 +2668,11 @@ getToolingListView() {
         const totalExp = sl.shootCount * qty;
         if (okRaw > totalExp) { alert(`Actual Part OK (${okRaw.toLocaleString('id-ID')}) tidak boleh melebihi Total Expected (${totalExp.toLocaleString('id-ID')}).`); return; }
         const id = 'PR-' + String((this.data.productionLogs.length + 1)).padStart(3, '0');
-        this.data.productionLogs.push({ id, toolId, shootLogId, actualPartOk: okRaw });
+        const newLog={ id, toolId, shootLogId, actualPartOk: okRaw };
+        this.data.productionLogs.push(newLog);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.insertProductionLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan produksi ke database.');}
+        }
         this.closeModal('add-production-modal');
         alert(`Data produksi ${id} berhasil ditambahkan!`);
         document.getElementById('app-layout')?.remove(); this.router();
@@ -2382,7 +2698,7 @@ getToolingListView() {
         document.body.appendChild(modal); document.body.style.overflow = 'hidden';
         this.initNumberFormat('ep-ok');
     }
-    submitEditProduction(productionId) {
+    async submitEditProduction(productionId) {
         const p = this.data.productionLogs.find(x => x.id === productionId);
         if (!p) return;
         const okRaw = this.parseFormattedNumber(document.getElementById('ep-ok')?.value);
@@ -2394,15 +2710,21 @@ getToolingListView() {
         const totalExp = sl.shootCount * qty;
         if (okRaw > totalExp) { alert(`Actual Part OK (${okRaw.toLocaleString('id-ID')}) tidak boleh melebihi Total Expected (${totalExp.toLocaleString('id-ID')}).`); return; }
         p.actualPartOk = okRaw;
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.updateProductionLog(productionId, p);}catch(e){console.error(e);alert('Gagal memperbarui produksi di database.');}
+        }
         this.closeModal('edit-production-modal');
         alert(`Data produksi ${productionId} berhasil diperbarui!`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
-    submitDeleteProduction(productionId, toolId) {
+    async submitDeleteProduction(productionId, toolId) {
         const idx = this.data.productionLogs.findIndex(x => x.id === productionId);
         if (idx === -1) return;
         if (!confirm(`Yakin ingin menghapus data produksi ${productionId}?`)) return;
         this.data.productionLogs.splice(idx, 1);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.deleteProductionLog(productionId);}catch(e){console.error(e);alert('Gagal menghapus produksi di database.');}
+        }
         alert(`Data produksi ${productionId} berhasil dihapus.`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
@@ -2599,7 +2921,7 @@ getToolingListView() {
         this.initNumberFormat('dl-qty');
         this.initNumberFormat('dl-ok');
     }
-    submitAddDelivery(toolId) {
+    async submitAddDelivery(toolId) {
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const inputDate = document.getElementById('dl-month')?.value;
@@ -2612,7 +2934,11 @@ getToolingListView() {
         const exists = (this.data.deliveryLogs || []).find(d => d.toolId === toolId && d.month === month);
         if (exists) { alert(`Bulan ${month} sudah ada data pengiriman. Silakan edit data yang sudah ada.`); return; }
         const id = 'DL-' + String((this.data.deliveryLogs.length + 1)).padStart(3, '0');
-        this.data.deliveryLogs.push({ id, toolId, month, qtyDelivered: qty, qtyOk: qtyOk || 0 });
+        const newLog={ id, toolId, month, inputDate, qtyDelivered: qty, qtyOk: qtyOk || 0 };
+        this.data.deliveryLogs.push(newLog);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.insertDeliveryLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan pengiriman ke database.');}
+        }
         this.closeModal('add-delivery-modal');
         alert(`Data pengiriman ${id} berhasil ditambahkan!`);
         document.getElementById('app-layout')?.remove(); this.router();
@@ -2632,7 +2958,7 @@ getToolingListView() {
         this.initNumberFormat('edl-qty');
         this.initNumberFormat('edl-ok');
     }
-    submitEditDelivery(deliveryId) {
+    async submitEditDelivery(deliveryId) {
         const l = this.data.deliveryLogs.find(x => x.id === deliveryId);
         if (!l) return;
         const inputDate = document.getElementById('edl-month')?.value;
@@ -2644,16 +2970,22 @@ getToolingListView() {
         if (qtyOk === undefined || qtyOk === null || qtyOk < 0) { alert('Harap isi QTY OK dengan benar.'); return; }
         const conflict = (this.data.deliveryLogs || []).find(d => d.toolId === l.toolId && d.month === month && d.id !== deliveryId);
         if (conflict) { alert(`Bulan ${month} sudah ada data pengiriman. Silakan edit data yang sudah ada.`); return; }
-        l.month = month; l.qtyDelivered = qty; l.qtyOk = qtyOk || 0;
+        l.month = month; l.inputDate = inputDate; l.qtyDelivered = qty; l.qtyOk = qtyOk || 0;
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.updateDeliveryLog(deliveryId, l);}catch(e){console.error(e);alert('Gagal memperbarui pengiriman di database.');}
+        }
         this.closeModal('edit-delivery-modal'); this.closeModal('delivery-log-modal');
         alert(`Data pengiriman ${deliveryId} berhasil diperbarui!`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
-    submitDeleteDelivery(deliveryId, toolId) {
+    async submitDeleteDelivery(deliveryId, toolId) {
         const idx = this.data.deliveryLogs.findIndex(x => x.id === deliveryId);
         if (idx === -1) return;
         if (!confirm(`Yakin ingin menghapus data pengiriman ${deliveryId}?`)) return;
         this.data.deliveryLogs.splice(idx, 1);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.deleteDeliveryLog(deliveryId);}catch(e){console.error(e);alert('Gagal menghapus pengiriman di database.');}
+        }
         this.closeModal('delivery-log-modal');
         alert(`Data pengiriman ${deliveryId} berhasil dihapus.`);
         document.getElementById('app-layout')?.remove(); this.router();
