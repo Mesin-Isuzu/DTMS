@@ -1,0 +1,23 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Local environment (tidak digunakan di static site, tapi disimpan sebagai cadangan)
+.env
+.env.local
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Dependency directories (jika ada nanti)
+node_modules/
