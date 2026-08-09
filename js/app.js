@@ -2437,7 +2437,8 @@ getToolingListView() {
     openAddUserModal() {
         const modal=document.createElement('div');
         modal.id='add-user-modal'; modal.className='modal-overlay'; modal.style.cssText='display:flex;opacity:1;visibility:visible;';
-        modal.innerHTML=`<div class="modal-content" style="max-width:450px"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-plus-circle" style="color:var(--accent-color);margin-right:0.5rem"></i>Tambah Pengguna</h3><button class="modal-close" onclick="app.closeModal('add-user-modal')">&times;</button></div><div class="modal-body"><div class="form-group"><label class="form-label">Username <span style="color:var(--danger-color)">*</span></label><input type="text" id="au-username" class="form-control" placeholder="Contoh: supplier2"></div><div class="form-group"><label class="form-label">Nama Lengkap <span style="color:var(--danger-color)">*</span></label><input type="text" id="au-name" class="form-control" placeholder="Contoh: PT Maju Jaya"></div><div class="form-group"><label class="form-label">Perusahaan</label><input type="text" id="au-company" class="form-control" placeholder="Contoh: PT Maju Jaya"></div><div class="form-group"><label class="form-label">Role <span style="color:var(--danger-color)">*</span></label><select id="au-role" class="form-control"><option>Admin Sistem</option><option>Purchasing MII</option><option selected>Pengguna Supplier</option></select></div><div class="form-group"><label class="form-label">Supplier ID (opsional)</label><input type="text" id="au-supplierid" class="form-control" placeholder="Contoh: SUP002"></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="app.closeModal('add-user-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitAddUser()"><i class="fas fa-save"></i> Simpan</button></div></div>`;
+        const genPw = (window.DTMS && window.DTMS.generatePassword) ? window.DTMS.generatePassword() : Math.random().toString(36).slice(2,10);
+        modal.innerHTML=`<div class="modal-content" style="max-width:450px"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-plus-circle" style="color:var(--accent-color);margin-right:0.5rem"></i>Tambah Pengguna</h3><button class="modal-close" onclick="app.closeModal('add-user-modal')">&times;</button></div><div class="modal-body"><div class="form-group"><label class="form-label">Username <span style="color:var(--danger-color)">*</span></label><input type="text" id="au-username" class="form-control" placeholder="Contoh: supplier2"></div><div class="form-group"><label class="form-label">Nama Lengkap <span style="color:var(--danger-color)">*</span></label><input type="text" id="au-name" class="form-control" placeholder="Contoh: PT Maju Jaya"></div><div class="form-group"><label class="form-label">Password <span style="color:var(--danger-color)">*</span></label><input type="text" id="au-password" class="form-control" value="${genPw}" placeholder="Password untuk login"></div><div class="form-group"><label class="form-label">Perusahaan</label><input type="text" id="au-company" class="form-control" placeholder="Contoh: PT Maju Jaya"></div><div class="form-group"><label class="form-label">Role <span style="color:var(--danger-color)">*</span></label><select id="au-role" class="form-control"><option>Admin Sistem</option><option>Purchasing MII</option><option selected>Pengguna Supplier</option></select></div><div class="form-group"><label class="form-label">Supplier ID (opsional)</label><input type="text" id="au-supplierid" class="form-control" placeholder="Contoh: SUP002"></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="app.closeModal('add-user-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitAddUser()"><i class="fas fa-save"></i> Simpan</button></div></div>`;
         document.body.appendChild(modal); document.body.style.overflow='hidden';
     }
 
@@ -2447,20 +2448,22 @@ getToolingListView() {
         const role=document.getElementById('au-role')?.value;
         const supplierId=document.getElementById('au-supplierid')?.value?.trim()||'';
         const company=document.getElementById('au-company')?.value?.trim()||'';
+        const password=document.getElementById('au-password')?.value?.trim();
         if(!username||!name){alert('Username dan Nama Lengkap wajib diisi.');return;}
         if(this.data.users.some(x=>x.username===username)){alert(`Username "${username}" sudah digunakan.`);return;}
         const maxId=this.data.users.reduce((m,x)=>Math.max(m,x.id),0);
         const newUser={id:maxId+1,username,email:`${username}@dtms.mail`,name,role,supplierId:supplierId||undefined,company:company||undefined};
         this.data.users.push(newUser);
+        const finalPw = password || (window.DTMS && window.DTMS.generatePassword ? window.DTMS.generatePassword() : 'password123');
         if(window.DTMS && window.DTMS.enabled()){
             try{
                 await window.DTMS.insertUser(newUser);
                 const meta={username,name,role,company,supplierId:supplierId||null};
-                await window.DTMS.signUp(newUser.email, 'password123', meta);
+                await window.DTMS.signUp(newUser.email, finalPw, meta);
             }catch(e){console.error(e);alert('Gagal menyimpan pengguna ke database/auth.');}
         }
         this.closeModal('add-user-modal');
-        alert(`Pengguna ${username} berhasil ditambahkan. Password default: password123`);
+        alert(`Pengguna ${username} berhasil ditambahkan. Password: ${finalPw}`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
 
@@ -2470,7 +2473,7 @@ getToolingListView() {
         const modal=document.createElement('div');
         modal.id='edit-user-modal'; modal.className='modal-overlay'; modal.style.cssText='display:flex;opacity:1;visibility:visible;';
         const roleOpts=['Admin Sistem','Purchasing MII','Pengguna Supplier'].map(r=>`<option${r===u.role?' selected':''}>${r}</option>`).join('');
-        modal.innerHTML=`<div class="modal-content" style="max-width:450px"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-edit" style="color:var(--accent-color);margin-right:0.5rem"></i>Ubah Pengguna: ${u.username}</h3><button class="modal-close" onclick="app.closeModal('edit-user-modal')">&times;</button></div><div class="modal-body"><div class="form-group"><label class="form-label">Username</label><input type="text" class="form-control" value="${u.username}" readonly style="background:#f1f5f9"></div><div class="form-group"><label class="form-label">Nama Lengkap <span style="color:var(--danger-color)">*</span></label><input type="text" id="eu-name" class="form-control" value="${u.name}"></div><div class="form-group"><label class="form-label">Perusahaan</label><input type="text" id="eu-company" class="form-control" value="${u.company||''}" placeholder="Contoh: PT Maju Jaya"></div><div class="form-group"><label class="form-label">Role <span style="color:var(--danger-color)">*</span></label><select id="eu-role" class="form-control">${roleOpts}</select></div><div class="form-group"><label class="form-label">Supplier ID (opsional)</label><input type="text" id="eu-supplierid" class="form-control" value="${u.supplierId||''}" placeholder="Contoh: SUP002"></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="app.closeModal('edit-user-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitEditUser(${userId})"><i class="fas fa-save"></i> Simpan</button></div></div>`;
+        modal.innerHTML=`<div class="modal-content" style="max-width:450px"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-edit" style="color:var(--accent-color);margin-right:0.5rem"></i>Ubah Pengguna: ${u.username}</h3><button class="modal-close" onclick="app.closeModal('edit-user-modal')">&times;</button></div><div class="modal-body"><div class="form-group"><label class="form-label">Username</label><input type="text" class="form-control" value="${u.username}" readonly style="background:#f1f5f9"></div><div class="form-group"><label class="form-label">Nama Lengkap <span style="color:var(--danger-color)">*</span></label><input type="text" id="eu-name" class="form-control" value="${u.name}"></div><div class="form-group"><label class="form-label">Password Baru (opsional)</label><input type="text" id="eu-password" class="form-control" placeholder="Kosongkan jika tidak ingin mengubah"></div><div class="form-group"><label class="form-label">Perusahaan</label><input type="text" id="eu-company" class="form-control" value="${u.company||''}" placeholder="Contoh: PT Maju Jaya"></div><div class="form-group"><label class="form-label">Role <span style="color:var(--danger-color)">*</span></label><select id="eu-role" class="form-control">${roleOpts}</select></div><div class="form-group"><label class="form-label">Supplier ID (opsional)</label><input type="text" id="eu-supplierid" class="form-control" value="${u.supplierId||''}" placeholder="Contoh: SUP002"></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="app.closeModal('edit-user-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitEditUser(${userId})"><i class="fas fa-save"></i> Simpan</button></div></div>`;
         document.body.appendChild(modal); document.body.style.overflow='hidden';
     }
 
@@ -2481,13 +2484,23 @@ getToolingListView() {
         const role=document.getElementById('eu-role')?.value;
         const supplierId=document.getElementById('eu-supplierid')?.value?.trim()||'';
         const company=document.getElementById('eu-company')?.value?.trim()||'';
+        const newPassword=document.getElementById('eu-password')?.value?.trim();
         if(!name){alert('Nama Lengkap wajib diisi.');return;}
         u.name=name; u.role=role; u.supplierId=supplierId||undefined; u.company=company||undefined;
         if(window.DTMS && window.DTMS.enabled()){
-            try{await window.DTMS.updateUser(userId, u);}catch(e){console.error(e);alert('Gagal memperbarui pengguna di database.');}
+            try{
+                await window.DTMS.updateUser(userId, u);
+                if(newPassword){
+                    const result = await window.DTMS.updateAuthPassword(u.email, newPassword);
+                    if(result.error){
+                        console.error('Update password error:', result.error);
+                        alert('Data pengguna diperbarui, tetapi gagal mengubah password: ' + result.error.message);
+                    }
+                }
+            }catch(e){console.error(e);alert('Gagal memperbarui pengguna di database.');}
         }
         this.closeModal('edit-user-modal');
-        alert(`Data pengguna ${u.username} berhasil diperbarui.`);
+        alert(`Data pengguna ${u.username} berhasil diperbarui.${newPassword ? ' Password baru: ' + newPassword : ''}`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
 
@@ -2499,7 +2512,11 @@ getToolingListView() {
         if(!confirm(`Yakin ingin menghapus pengguna "${u.username}" (${u.name})?`))return;
         this.data.users.splice(idx,1);
         if(window.DTMS && window.DTMS.enabled()){
-            try{await window.DTMS.deleteUser(userId);}catch(e){console.error(e);alert('Gagal menghapus pengguna di database.');}
+            try{
+                await window.DTMS.deleteUser(userId);
+                const authResult = await window.DTMS.deleteAuthUser(u.email);
+                if(authResult.error) console.warn('Failed to delete auth user (non-critical):', authResult.error.message);
+            }catch(e){console.error(e);alert('Gagal menghapus pengguna di database.');}
         }
         alert(`Pengguna ${u.username} berhasil dihapus.`);
         document.getElementById('app-layout')?.remove(); this.router();

@@ -9,6 +9,8 @@ const DTMS = (function () {
     !window.DTMS_SUPABASE_ANON_KEY ||
     window.DTMS_SUPABASE_ANON_KEY.includes('your-anon-key');
 
+  const serviceRoleKey = window.DTMS_SUPABASE_SERVICE_ROLE_KEY || '';
+
   let client = null;
   if (!isPlaceholder && window.supabase && window.supabase.createClient) {
     client = window.supabase.createClient(
@@ -234,6 +236,76 @@ const DTMS = (function () {
   async function deleteUser(id) { return remove('users', id); }
 
   // ----------------------------
+  // Auth Admin (service_role)
+  // ----------------------------
+  function getAuthHeaders() {
+    return {
+      'Authorization': `Bearer ${serviceRoleKey}`,
+      'Content-Type': 'application/json'
+    };
+  }
+
+  function generatePassword() {
+    const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
+    let pw = '';
+    for (let i = 0; i < 8; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+    return pw;
+  }
+
+  async function getAuthUserIdByEmail(email) {
+    if (!client || !serviceRoleKey) return null;
+    try {
+      const res = await fetch(`${window.DTMS_SUPABASE_URL}/auth/v1/admin/users`, {
+        method: 'GET',
+        headers: getAuthHeaders()
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const users = data.users || data;
+      const found = users.find(u => u.email === email);
+      return found ? found.id : null;
+    } catch (e) {
+      console.error('getAuthUserIdByEmail error:', e);
+      return null;
+    }
+  }
+
+  async function deleteAuthUser(email) {
+    if (!client || !serviceRoleKey) return { error: new Error('Service role not configured') };
+    try {
+      const userId = await getAuthUserIdByEmail(email);
+      if (!userId) return { error: new Error('User not found in auth') };
+      const res = await fetch(`${window.DTMS_SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (!res.ok) return { error: new Error(`Failed to delete auth user: ${res.status}`) };
+      return { error: null };
+    } catch (e) {
+      console.error('deleteAuthUser error:', e);
+      return { error: e };
+    }
+  }
+
+  async function updateAuthPassword(email, newPassword) {
+    if (!client || !serviceRoleKey) return { error: new Error('Service role not configured') };
+    try {
+      const userId = await getAuthUserIdByEmail(email);
+      if (!userId) return { error: new Error('User not found in auth') };
+      const res = await fetch(`${window.DTMS_SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ password: newPassword })
+      });
+      if (!res.ok) return { error: new Error(`Failed to update password: ${res.status}`) };
+      return { error: null };
+    } catch (e) {
+      console.error('updateAuthPassword error:', e);
+      return { error: e };
+    }
+  }
+
+  // ----------------------------
   // Storage
   // ----------------------------
   async function uploadFile(bucket, file, path) {
@@ -319,6 +391,9 @@ const DTMS = (function () {
     insertUser,
     updateUser,
     deleteUser,
+    generatePassword,
+    deleteAuthUser,
+    updateAuthPassword,
     uploadFile,
     removeFile,
     getPublicUrl,
