@@ -427,8 +427,6 @@ end;
 $$;
 
 drop trigger if exists trg_toolings_updated_at on public."toolings";
-drop trigger if exists on public."toolings";
-drop trigger if exists "trg_toolings_updated_at" on public."toolings";
 create trigger trg_toolings_updated_at
   before update on public."toolings"
   for each row execute function public.set_updated_at();
