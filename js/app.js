@@ -140,7 +140,7 @@ class App {
         const user = this.data.users.find(u => u.username === username);
 
         if (window.DTMS && window.DTMS.enabled()) {
-            const email = user && user.email ? user.email : `${username}@dtms.local`;
+            const email = user && user.email ? user.email : `${username}@dtms.mail`;
             const { user: authUser, error } = await window.DTMS.login(email, password || 'password');
             if (error || !authUser) {
                 alert('Login gagal: ' + (error?.message || 'kredensial salah'));
@@ -2309,7 +2309,7 @@ getToolingListView() {
         if(!username||!name){alert('Username dan Nama Lengkap wajib diisi.');return;}
         if(this.data.users.some(x=>x.username===username)){alert(`Username "${username}" sudah digunakan.`);return;}
         const maxId=this.data.users.reduce((m,x)=>Math.max(m,x.id),0);
-        const newUser={id:maxId+1,username,email:`${username}@dtms.local`,name,role,supplierId:supplierId||undefined,company:company||undefined};
+        const newUser={id:maxId+1,username,email:`${username}@dtms.mail`,name,role,supplierId:supplierId||undefined,company:company||undefined};
         this.data.users.push(newUser);
         if(window.DTMS && window.DTMS.enabled()){
             try{

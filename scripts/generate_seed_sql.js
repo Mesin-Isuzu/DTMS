@@ -43,11 +43,11 @@ function supplierId(name) {
 
 // Users
 const userEmail = {
-  admin: 'admin@dtms.local',
-  purchasing: 'purchasing@dtms.local',
-  supplier1: 'supplier1@dtms.local',
-  supplier2: 'supplier2@dtms.local',
-  supplier3: 'supplier3@dtms.local'
+  admin: 'admin@dtms.mail',
+  purchasing: 'purchasing@dtms.mail',
+  supplier1: 'supplier1@dtms.mail',
+  supplier2: 'supplier2@dtms.mail',
+  supplier3: 'supplier3@dtms.mail'
 };
 
 out.push('-- users');
