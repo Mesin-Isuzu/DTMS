@@ -157,8 +157,14 @@ create policy "toolings_insert" on public."toolings"
 drop policy if exists "toolings_update" on public."toolings";
 create policy "toolings_update" on public."toolings"
   for update to authenticated
-  using (public.can_access_all_toolings())
-  with check (public.can_access_all_toolings());
+  using (
+    public.can_access_all_toolings()
+    or (public.is_supplier() and public.get_my_supplier_id() = "supplierId")
+  )
+  with check (
+    public.can_access_all_toolings()
+    or (public.is_supplier() and public.get_my_supplier_id() = "supplierId")
+  );
 
 drop policy if exists "toolings_delete" on public."toolings";
 create policy "toolings_delete" on public."toolings"
