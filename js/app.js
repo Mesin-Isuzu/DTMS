@@ -1116,9 +1116,11 @@ getToolingListView() {
             }
             return '';
         };
-        let rows = tasks.map((t,i)=>`<tr><td>${i+1}</td><td class="font-semibold">${t.id}</td><td><a href="#tooling/${t.toolId}">${t.toolId}</a><br><span class="text-muted" style="font-size:0.75rem">${t.toolName}</span></td><td>${t.supplier}</td><td>${t.type}</td><td style="max-width:200px;white-space:normal">${t.description}</td><td>${fmt(t.assignedDate)}</td><td>${fmt(t.dueDate)}</td><td><span class="badge ${t.priority==='Tinggi'?'badge-danger':'badge-info'}">${t.priority}</span></td><td><span class="badge ${sBadge(t.status)}">${t.status}</span></td><td>${t.status==='Selesai'&&t.completedDate?fmt(t.completedDate):'-'}</td><td>${evidenceCell(t)}</td>${actionCell(t)}</tr>`).join('');
+        let rows = tasks.map((t,i)=>`<tr data-status="${t.status}" data-priority="${t.priority}"><td>${i+1}</td><td class="font-semibold">${t.id}</td><td><a href="#tooling/${t.toolId}">${t.toolId}</a><br><span class="text-muted" style="font-size:0.75rem">${t.toolName}</span></td><td>${t.supplier}</td><td>${t.type}</td><td style="max-width:200px;white-space:normal">${t.description}</td><td>${fmt(t.assignedDate)}</td><td>${fmt(t.dueDate)}</td><td><span class="badge ${t.priority==='Tinggi'?'badge-danger':'badge-info'}">${t.priority}</span></td><td><span class="badge ${sBadge(t.status)}">${t.status}</span></td><td>${t.status==='Selesai'&&t.completedDate?fmt(t.completedDate):'-'}</td><td>${evidenceCell(t)}</td>${actionCell(t)}</tr>`).join('');
         if(!rows) rows=`<tr><td colspan="${isAdmin||isSupplier?13:12}" style="text-align:center;padding:2rem;color:var(--text-secondary)">Tidak ada tugas.</td></tr>`;
-        return `<div class="kpi-grid supplier-tasks-cards" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:1.5rem"><div class="kpi-card" style="grid-row:span 2"><div class="kpi-icon dark"><i class="fas fa-cubes"></i></div><div class="kpi-content"><span class="kpi-title">Total Tooling</span><div class="kpi-value">${total}</div></div></div><div class="kpi-card"><div class="kpi-icon orange"><i class="fas fa-spinner"></i></div><div class="kpi-content"><span class="kpi-title">Sedang Dikerjakan</span><div class="kpi-value">${sDikerjakan}</div></div></div><div class="kpi-card"><div class="kpi-icon blue"><i class="fas fa-hourglass-half"></i></div><div class="kpi-content"><span class="kpi-title">Menunggu Konfirmasi</span><div class="kpi-value">${sMenunggu}</div></div></div><div class="kpi-card"><div class="kpi-icon green"><i class="fas fa-check-circle"></i></div><div class="kpi-content"><span class="kpi-title">Selesai</span><div class="kpi-value">${sSelesai}</div></div></div><div class="kpi-card"><div class="kpi-icon red"><i class="fas fa-exclamation-circle"></i></div><div class="kpi-content"><span class="kpi-title">Overdue</span><div class="kpi-value">${sOverdue}</div></div></div></div><div class="card"><div class="card-header"><h3 class="card-title">Daftar Tugas Supplier</h3><div class="header-actions">${isAdmin?`<button class="btn btn-primary" onclick="app.openAddSupplierTaskModal()"><i class="fas fa-plus"></i> Tugas Baru</button>`:''}</div></div><div class="table-responsive"><table class="table"><thead><tr><th>No.</th><th>ID</th><th>Tooling</th><th>Supplier</th><th>Tipe</th><th>Deskripsi</th><th>Ditugaskan</th><th>Deadline</th><th>Prioritas</th><th>Status</th><th>Tanggal Selesai</th><th>Evidence Selesai</th>${isAdmin||isSupplier?'<th>Aksi</th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+        const filterBtn = `<button class="btn btn-secondary" onclick="app.toggleSupplierTaskFilter()"><i class="fas fa-filter"></i> Filter</button>`;
+        const toolbar = `<div class="table-toolbar">${filterBtn}</div>`;
+        return `<div class="kpi-grid supplier-tasks-cards" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:1.5rem"><div class="kpi-card" style="grid-row:span 2"><div class="kpi-icon dark"><i class="fas fa-cubes"></i></div><div class="kpi-content"><span class="kpi-title">Total Tooling</span><div class="kpi-value">${total}</div></div></div><div class="kpi-card"><div class="kpi-icon orange"><i class="fas fa-spinner"></i></div><div class="kpi-content"><span class="kpi-title">Sedang Dikerjakan</span><div class="kpi-value">${sDikerjakan}</div></div></div><div class="kpi-card"><div class="kpi-icon blue"><i class="fas fa-hourglass-half"></i></div><div class="kpi-content"><span class="kpi-title">Menunggu Konfirmasi</span><div class="kpi-value">${sMenunggu}</div></div></div><div class="kpi-card"><div class="kpi-icon green"><i class="fas fa-check-circle"></i></div><div class="kpi-content"><span class="kpi-title">Selesai</span><div class="kpi-value">${sSelesai}</div></div></div><div class="kpi-card"><div class="kpi-icon red"><i class="fas fa-exclamation-circle"></i></div><div class="kpi-content"><span class="kpi-title">Overdue</span><div class="kpi-value">${sOverdue}</div></div></div></div><div class="card"><div class="card-header"><h3 class="card-title">Daftar Tugas Supplier</h3><div class="header-actions">${isAdmin?`<button class="btn btn-primary" onclick="app.openAddSupplierTaskModal()"><i class="fas fa-plus"></i> Tugas Baru</button>`:''}</div></div>${toolbar}<div class="table-responsive"><table class="table" id="supplierTasksTable"><thead><tr><th>No.</th><th>ID</th><th>Tooling</th><th>Supplier</th><th>Tipe</th><th>Deskripsi</th><th>Ditugaskan</th><th>Deadline</th><th>Prioritas</th><th>Status</th><th>Tanggal Selesai</th><th>Evidence Selesai</th>${isAdmin||isSupplier?'<th>Aksi</th>':''}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
     }
 
     // ===== SUPPLIER TASK CRUD =====
@@ -1620,6 +1622,126 @@ getToolingListView() {
 
     updateRowNumbers() {
         const rows = document.querySelectorAll('#toolingTable tbody tr');
+        let num = 1;
+        rows.forEach(row => {
+            if (row.style.display !== 'none') {
+                const td = row.querySelector('td');
+                if (td) td.textContent = num++;
+            }
+        });
+    }
+
+    // ===== SUPPLIER TASKS FILTER =====
+    supplierTaskFilterKey = 'dtms-supplier-task-filter-state';
+
+    getSupplierTaskFilterDefaults() {
+        return {
+            stStatus: ['Menunggu Konfirmasi', 'Sedang Dikerjakan', 'Selesai', 'Overdue'],
+            stPriority: ['Normal', 'Tinggi']
+        };
+    }
+
+    loadSupplierTaskFilterState() {
+        try {
+            const raw = localStorage.getItem(this.supplierTaskFilterKey);
+            if (raw) return JSON.parse(raw);
+        } catch (e) { console.warn('Gagal memuat state filter:', e); }
+        return this.getSupplierTaskFilterDefaults();
+    }
+
+    saveSupplierTaskFilterState() {
+        try {
+            const state = {
+                stStatus: this.getSupplierTaskFilterSelected('stStatus'),
+                stPriority: this.getSupplierTaskFilterSelected('stPriority')
+            };
+            localStorage.setItem(this.supplierTaskFilterKey, JSON.stringify(state));
+        } catch (e) { console.warn('Gagal menyimpan state filter:', e); }
+    }
+
+    resetSupplierTaskFilter() {
+        const panel = document.getElementById('supplier-task-filter-panel');
+        if (!panel) return;
+        const defaults = this.getSupplierTaskFilterDefaults();
+        ['stStatus', 'stPriority'].forEach(groupId => {
+            panel.querySelectorAll(`input[id^="chk_st_${groupId}_"]:not([id$="_all"])`).forEach(cb => {
+                cb.checked = defaults[groupId].includes(cb.value);
+            });
+        });
+        this.applySupplierTaskFilter();
+    }
+
+    toggleSupplierTaskFilter() {
+        let fp = document.getElementById('supplier-task-filter-panel');
+        if (fp) { fp.remove(); return; }
+        const statuses = ['Menunggu Konfirmasi', 'Sedang Dikerjakan', 'Selesai', 'Overdue'];
+        const priorities = ['Normal', 'Tinggi'];
+        const state = this.loadSupplierTaskFilterState();
+        const chkGroup = (id, label, opts) => {
+            const allId = `chk_st_${id}_all`;
+            const selected = state[id] || opts;
+            const items = opts.map(o => {
+                const cid = `chk_st_${id}_${o.replace(/\s+/g, '_')}`;
+                const checked = selected.includes(o) ? 'checked' : '';
+                return `<label class="filter-check-label"><input type="checkbox" id="${cid}" value="${o}" ${checked} onchange="app.applySupplierTaskFilter()"> ${o}</label>`;
+            }).join('');
+            return `<div class="filter-group"><label class="form-label">${label}</label><div class="filter-check-group"><label class="filter-check-label filter-check-all"><input type="checkbox" id="${allId}" checked onchange="app.toggleSupplierTaskFilterAll('${id}',this)"> Semua</label>${items}</div></div>`;
+        };
+        const tb = document.querySelector('.table-toolbar');
+        if (!tb) return;
+        tb.insertAdjacentHTML('afterend', `<div id="supplier-task-filter-panel"><div class="filter-actions" style="display:flex;justify-content:flex-end;margin-bottom:0.5rem"><button type="button" class="btn btn-sm btn-secondary" onclick="app.resetSupplierTaskFilter()"><i class="fas fa-undo"></i> Reset Filter</button></div>${chkGroup('stStatus', 'Status', statuses)}${chkGroup('stPriority', 'Prioritas', priorities)}</div>`);
+        this.applySupplierTaskFilter();
+    }
+
+    toggleSupplierTaskFilterAll(groupId, allCheckbox) {
+        const panel = document.getElementById('supplier-task-filter-panel');
+        if (!panel) return;
+        const checked = allCheckbox.checked;
+        panel.querySelectorAll(`input[id^="chk_st_${groupId}_"]:not([id$="_all"])`).forEach(cb => {
+            cb.checked = checked;
+        });
+        this.applySupplierTaskFilter();
+    }
+
+    getSupplierTaskFilterSelected(id) {
+        const panel = document.getElementById('supplier-task-filter-panel');
+        if (!panel) return [];
+        const selected = [];
+        panel.querySelectorAll(`input[id^="chk_st_${id}_"]:not([id$="_all"]):checked`).forEach(cb => {
+            selected.push(cb.value);
+        });
+        return selected;
+    }
+
+    syncSupplierTaskFilterAll(groupId) {
+        const panel = document.getElementById('supplier-task-filter-panel');
+        if (!panel) return;
+        const allCb = document.getElementById(`chk_st_${groupId}_all`);
+        if (!allCb) return;
+        const items = panel.querySelectorAll(`input[id^="chk_st_${groupId}_"]:not([id$="_all"])`);
+        const allChecked = items.length > 0 && Array.from(items).every(cb => cb.checked);
+        allCb.checked = allChecked;
+    }
+
+    applySupplierTaskFilter() {
+        this.syncSupplierTaskFilterAll('stStatus');
+        this.syncSupplierTaskFilterAll('stPriority');
+        this.saveSupplierTaskFilterState();
+        const stSelected = this.getSupplierTaskFilterSelected('stStatus');
+        const prSelected = this.getSupplierTaskFilterSelected('stPriority');
+        const panel = document.getElementById('supplier-task-filter-panel');
+        document.querySelectorAll('#supplierTasksTable tbody tr').forEach(row => {
+            const rowStatus = row.getAttribute('data-status') || '';
+            const rowPriority = row.getAttribute('data-priority') || '';
+            const stMatch = !panel || stSelected.some(v => rowStatus === v);
+            const prMatch = !panel || prSelected.some(v => rowPriority === v);
+            row.style.display = (stMatch && prMatch) ? '' : 'none';
+        });
+        this.updateSupplierTaskRowNumbers();
+    }
+
+    updateSupplierTaskRowNumbers() {
+        const rows = document.querySelectorAll('#supplierTasksTable tbody tr');
         let num = 1;
         rows.forEach(row => {
             if (row.style.display !== 'none') {
