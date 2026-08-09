@@ -411,6 +411,7 @@ class App {
                         <input type="text" class="form-control" id="toolingSearch" placeholder="Cari berdasarkan ID, Nama, Nomor Part...">
                     </div>
                     <button class="btn btn-secondary" onclick="app.exportToolingExcel()"><i class="fas fa-file-export"></i> Ekspor</button>
+                    ${!this.currentUser.role.includes('Supplier') ? `<button class="btn btn-secondary" onclick="app.openImportToolingModal()"><i class="fas fa-file-import"></i> Impor</button>` : ''}
                 </div>
                 <div class="table-responsive">
                     <table class="table" id="toolingTable">
@@ -473,6 +474,7 @@ getToolingListView() {
                         <input type="text" class="form-control" id="toolingSearch" placeholder="Cari berdasarkan ID, Nama, Nomor Part...">
                     </div>
                     <button class="btn btn-secondary" onclick="app.exportToolingExcel()"><i class="fas fa-file-export"></i> Ekspor</button>
+                    ${!this.currentUser.role.includes('Supplier') ? `<button class="btn btn-secondary" onclick="app.openImportToolingModal()"><i class="fas fa-file-import"></i> Impor</button>` : ''}
                 </div>
                 <div class="table-responsive">
                     <table class="table" id="toolingTable">
@@ -1804,6 +1806,90 @@ getToolingListView() {
         const wb=XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb,ws,'Register Induk Tooling');
         XLSX.writeFile(wb,'register_induk_tooling.xlsx');
+    }
+
+    // ===== IMPORT EXCEL =====
+    openImportToolingModal() {
+        const modal=document.createElement('div');
+        modal.id='import-tooling-modal'; modal.className='modal-overlay'; modal.style.cssText='display:flex;opacity:1;visibility:visible;';
+        modal.innerHTML=`<div class="modal-content" style="max-width:480px"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-file-import" style="color:var(--accent-color);margin-right:0.5rem"></i>Impor Data Tooling</h3><button class="modal-close" onclick="app.closeModal('import-tooling-modal')">&times;</button></div><div class="modal-body"><p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:1rem">Gunakan format Excel yang sama dengan hasil Ekspor. Baris dengan ID yang sudah ada akan dilewati.</p><div class="form-group"><button class="btn btn-secondary" onclick="app.downloadToolingTemplate()"><i class="fas fa-download"></i> Unduh Template</button></div><div class="form-group"><label class="form-label">File Excel (.xlsx/.xls)</label><input type="file" id="it-file" class="form-control" accept=".xlsx,.xls" onchange="app.importToolingExcel()"></div><div id="it-result" style="margin-top:1rem;font-size:0.875rem"></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="app.closeModal('import-tooling-modal')">Tutup</button></div></div>`;
+        document.body.appendChild(modal); document.body.style.overflow='hidden';
+    }
+
+    downloadToolingTemplate() {
+        const h=['No. Urut','ID Tooling','Nama Tooling','Tipe','Part Number','Nama Part','Model','Supplier','Nama PIC','Alamat Supplier','Status','Kondisi','Harga','Kepemilikan','Maker','QTY per Shoot','Tonnase','Material Tooling','Berat Tooling','Dimensi Utama (PxLxT)','Maximum Shoot','Kumulatif Shoot','Life Tool Ratio','Kumulatif Total Kirim','Kumulatif QTY OK','Total Reject Ratio','Periode Depresiasi','QTY Depresiasi','Sisa QTY Depresiasi'];
+        const rows=[
+            [1,'T-2026-001','Contoh Tooling A','Stamping Die','PN-001','Nama Part A','Model A','PT Supplier A','Ahmad','Jl. Contoh No.1','Aktif','Baik','Rp 100.000.000','Milik MII','PT Maker A','1','1.200 Ton','SKD11','2.500 kg','1200 x 600 x 800 mm','1000000','0','0%','0','0','0%','Tahun 5','500000','500000'],
+            [2,'T-2026-002','Contoh Tooling B','Casting Die','PN-002','Nama Part B','Model B','PT Supplier B','Budi','Jl. Contoh No.2','Aktif','Baik','Rp 150.000.000','Milik Supplier','PT Maker B','1','800 Ton','P20','1.800 kg','1000 x 500 x 700 mm','800000','0','0%','0','0','0%','Tahun 7','700000','700000']
+        ];
+        const ws=XLSX.utils.aoa_to_sheet([h,...rows]);
+        ws['!cols']=h.map((_,i)=>{return {wch:16};});
+        const wb=XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb,ws,'Template Tooling');
+        XLSX.writeFile(wb,'template_register_induk_tooling.xlsx');
+    }
+
+    async importToolingExcel() {
+        const fileInput=document.getElementById('it-file');
+        const resultEl=document.getElementById('it-result');
+        if(!fileInput||!fileInput.files||fileInput.files.length===0)return;
+        const file=fileInput.files[0];
+        const data=await file.arrayBuffer();
+        let wb;
+        try{wb=XLSX.read(data,{type:'array'});}catch(e){resultEl.innerHTML=`<span style="color:var(--danger-color)">Gagal membaca file: ${e.message}</span>`;return;}
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        if(rows.length<2){resultEl.innerHTML='<span style="color:var(--danger-color)">File kosong atau tidak memiliki data.</span>';return;}
+        const headers=rows[0].map(h=>String(h).trim());
+        const col=(label)=>headers.indexOf(label);
+        let success=0, errors=[];
+        for(let i=1;i<rows.length;i++){
+            const r=rows[i];
+            const id=String(r[col('ID Tooling')]||'').trim();
+            const name=String(r[col('Nama Tooling')]||'').trim();
+            const type=String(r[col('Tipe')]||'').trim();
+            if(!id&&!name&&!type) continue;
+            if(!id||!name||!type){errors.push(`Baris ${i+1}: ID, Nama, dan Tipe wajib diisi.`);continue;}
+            if(this.data.toolings.some(t=>t.id===id)){errors.push(`Baris ${i+1}: ID "${id}" sudah ada.`);continue;}
+            const periode=String(r[col('Periode Depresiasi')]||'').trim();
+            let depreciationType='', depreciationValue='';
+            if(periode){const sp=periode.indexOf(' ');if(sp>0){depreciationType=periode.slice(0,sp);depreciationValue=periode.slice(sp+1);}else{depreciationType=periode;}}
+            const obj={
+                id,
+                name,
+                type,
+                partNumber:String(r[col('Part Number')]||'').trim(),
+                partName:String(r[col('Nama Part')]||'').trim(),
+                model:String(r[col('Model')]||'').trim(),
+                supplier:String(r[col('Supplier')]||'').trim(),
+                pic:String(r[col('Nama PIC')]||'').trim(),
+                supplierAddress:String(r[col('Alamat Supplier')]||'').trim(),
+                status:String(r[col('Status')]||'Aktif').trim(),
+                condition:String(r[col('Kondisi')]||'Baik').trim(),
+                price:String(r[col('Harga')]||'').trim(),
+                owner:String(r[col('Kepemilikan')]||'').trim(),
+                maker:String(r[col('Maker')]||'').trim(),
+                qtyPerTooling:String(r[col('QTY per Shoot')]||'1').trim(),
+                tonnage:String(r[col('Tonnase')]||'').trim(),
+                material:String(r[col('Material Tooling')]||'').trim(),
+                weight:String(r[col('Berat Tooling')]||'').trim(),
+                dimensions:String(r[col('Dimensi Utama (PxLxT)')]||'').trim(),
+                maxShoot:parseInt(r[col('Maximum Shoot')]||0)||0,
+                depreciationType,
+                depreciationValue,
+                qtyDepreciation:String(r[col('QTY Depresiasi')]||'').trim()
+            };
+            try{
+                if(window.DTMS && window.DTMS.enabled()){
+                    await window.DTMS.insertTooling(obj);
+                }
+                this.data.toolings.push(obj);
+                success++;
+            }catch(e){console.error(e);errors.push(`Baris ${i+1}: Gagal menyimpan "${id}".`);}
+        }
+        const errHtml=errors.length>0?`<details style="margin-top:0.5rem"><summary style="color:var(--danger-color);cursor:pointer">${errors.length} error</summary><ul style="margin-top:0.5rem;padding-left:1.25rem;color:var(--text-secondary)">${errors.map(e=>`<li>${e}</li>`).join('')}</ul></details>`:'';
+        resultEl.innerHTML=`<span style="color:var(--success-color)">${success} data berhasil diimport.</span>${errHtml}`;
+        if(success>0){setTimeout(()=>{this.closeModal('import-tooling-modal');document.getElementById('app-layout')?.remove();this.router();},1500);}
     }
 
     // ===== MOVEMENT MODAL =====
