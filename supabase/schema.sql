@@ -85,9 +85,11 @@ comment on table public."users" is 'Application user directory synced from auth.
 
 alter table public."users" enable row level security;
 
+drop policy if exists "users_select_all" on public."users";
 create policy "users_select_all" on public."users"
   for select to authenticated using (true);
 
+drop policy if exists "users_admin_all" on public."users";
 create policy "users_admin_all" on public."users"
   for all to authenticated using (public.is_admin());
 
@@ -139,6 +141,7 @@ create table if not exists public."toolings" (
 
 alter table public."toolings" enable row level security;
 
+drop policy if exists "toolings_select" on public."toolings";
 create policy "toolings_select" on public."toolings"
   for select to authenticated
   using (
@@ -146,15 +149,18 @@ create policy "toolings_select" on public."toolings"
     or (public.is_supplier() and public.get_my_supplier_id() = "supplierId")
   );
 
+drop policy if exists "toolings_insert" on public."toolings";
 create policy "toolings_insert" on public."toolings"
   for insert to authenticated
   with check (public.can_access_all_toolings());
 
+drop policy if exists "toolings_update" on public."toolings";
 create policy "toolings_update" on public."toolings"
   for update to authenticated
   using (public.can_access_all_toolings())
   with check (public.can_access_all_toolings());
 
+drop policy if exists "toolings_delete" on public."toolings";
 create policy "toolings_delete" on public."toolings"
   for delete to authenticated
   using (public.is_admin());
@@ -180,6 +186,7 @@ create table if not exists public."maintenanceLogs" (
 
 alter table public."maintenanceLogs" enable row level security;
 
+drop policy if exists "maintenance_select" on public."maintenanceLogs";
 create policy "maintenance_select" on public."maintenanceLogs"
   for select to authenticated
   using (
@@ -187,6 +194,7 @@ create policy "maintenance_select" on public."maintenanceLogs"
     or (public.is_supplier() and public.get_my_supplier_id() = (select "supplierId" from public."toolings" where "id" = "toolId"))
   );
 
+drop policy if exists "maintenance_write" on public."maintenanceLogs";
 create policy "maintenance_write" on public."maintenanceLogs"
   for all to authenticated
   using (public.can_access_all_toolings())
@@ -215,6 +223,7 @@ create table if not exists public."supplierTasks" (
 
 alter table public."supplierTasks" enable row level security;
 
+drop policy if exists "supplierTasks_select" on public."supplierTasks";
 create policy "supplierTasks_select" on public."supplierTasks"
   for select to authenticated
   using (
@@ -222,6 +231,7 @@ create policy "supplierTasks_select" on public."supplierTasks"
     or (public.is_supplier() and public.get_my_supplier_id() = "supplierId")
   );
 
+drop policy if exists "supplierTasks_write" on public."supplierTasks";
 create policy "supplierTasks_write" on public."supplierTasks"
   for all to authenticated
   using (public.can_access_all_toolings())
@@ -241,6 +251,7 @@ create table if not exists public."shootLogs" (
 
 alter table public."shootLogs" enable row level security;
 
+drop policy if exists "shootLogs_select" on public."shootLogs";
 create policy "shootLogs_select" on public."shootLogs"
   for select to authenticated
   using (
@@ -248,6 +259,7 @@ create policy "shootLogs_select" on public."shootLogs"
     or (public.is_supplier() and public.get_my_supplier_id() = (select "supplierId" from public."toolings" where "id" = "toolId"))
   );
 
+drop policy if exists "shootLogs_write" on public."shootLogs";
 create policy "shootLogs_write" on public."shootLogs"
   for all to authenticated
   using (public.can_access_all_toolings())
@@ -266,6 +278,7 @@ create table if not exists public."productionLogs" (
 
 alter table public."productionLogs" enable row level security;
 
+drop policy if exists "productionLogs_select" on public."productionLogs";
 create policy "productionLogs_select" on public."productionLogs"
   for select to authenticated
   using (
@@ -273,6 +286,7 @@ create policy "productionLogs_select" on public."productionLogs"
     or (public.is_supplier() and public.get_my_supplier_id() = (select "supplierId" from public."toolings" where "id" = "toolId"))
   );
 
+drop policy if exists "productionLogs_write" on public."productionLogs";
 create policy "productionLogs_write" on public."productionLogs"
   for all to authenticated
   using (public.can_access_all_toolings())
@@ -293,6 +307,7 @@ create table if not exists public."deliveryLogs" (
 
 alter table public."deliveryLogs" enable row level security;
 
+drop policy if exists "deliveryLogs_select" on public."deliveryLogs";
 create policy "deliveryLogs_select" on public."deliveryLogs"
   for select to authenticated
   using (
@@ -300,6 +315,7 @@ create policy "deliveryLogs_select" on public."deliveryLogs"
     or (public.is_supplier() and public.get_my_supplier_id() = (select "supplierId" from public."toolings" where "id" = "toolId"))
   );
 
+drop policy if exists "deliveryLogs_write" on public."deliveryLogs";
 create policy "deliveryLogs_write" on public."deliveryLogs"
   for all to authenticated
   using (public.can_access_all_toolings())
@@ -323,6 +339,7 @@ create table if not exists public."movementLogs" (
 
 alter table public."movementLogs" enable row level security;
 
+drop policy if exists "movementLogs_select" on public."movementLogs";
 create policy "movementLogs_select" on public."movementLogs"
   for select to authenticated
   using (
@@ -330,6 +347,7 @@ create policy "movementLogs_select" on public."movementLogs"
     or (public.is_supplier() and public.get_my_supplier_id() = (select "supplierId" from public."toolings" where "id" = "toolId"))
   );
 
+drop policy if exists "movementLogs_write" on public."movementLogs";
 create policy "movementLogs_write" on public."movementLogs"
   for all to authenticated
   using (public.can_access_all_toolings())
@@ -350,6 +368,7 @@ create table if not exists public."notifications" (
 
 alter table public."notifications" enable row level security;
 
+drop policy if exists "notifications_select" on public."notifications";
 create policy "notifications_select" on public."notifications"
   for select to authenticated
   using (
@@ -357,6 +376,7 @@ create policy "notifications_select" on public."notifications"
     or "userId" = (select "id" from public."users" where "authId" = auth.uid())
   );
 
+drop policy if exists "notifications_admin" on public."notifications";
 create policy "notifications_admin" on public."notifications"
   for all to authenticated
   using (public.is_admin())
@@ -378,14 +398,17 @@ create table if not exists public."auditLogs" (
 
 alter table public."auditLogs" enable row level security;
 
+drop policy if exists "auditLogs_select" on public."auditLogs";
 create policy "auditLogs_select" on public."auditLogs"
   for select to authenticated
   using (public.can_access_all_toolings());
 
+drop policy if exists "auditLogs_insert" on public."auditLogs";
 create policy "auditLogs_insert" on public."auditLogs"
   for insert to authenticated
   with check (true);
 
+drop policy if exists "auditLogs_admin" on public."auditLogs";
 create policy "auditLogs_admin" on public."auditLogs"
   for delete to authenticated
   using (public.is_admin());
@@ -404,6 +427,8 @@ end;
 $$;
 
 drop trigger if exists trg_toolings_updated_at on public."toolings";
+drop trigger if exists on public."toolings";
+drop trigger if exists "trg_toolings_updated_at" on public."toolings";
 create trigger trg_toolings_updated_at
   before update on public."toolings"
   for each row execute function public.set_updated_at();
