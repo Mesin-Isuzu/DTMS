@@ -140,7 +140,7 @@ class App {
         const user = this.data.users.find(u => u.username === username);
 
         if (window.DTMS && window.DTMS.enabled()) {
-            const email = user && user.email ? user.email : `${username}@dtms.mail`;
+            const email = `${username}@dtms.mail`;
             const { user: authUser, error } = await window.DTMS.login(email, password || 'password');
             if (error || !authUser) {
                 alert('Login gagal: ' + (error?.message || 'kredensial salah'));
