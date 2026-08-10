@@ -21,3 +21,6 @@ __pycache__/
 
 # Dependency directories (jika ada nanti)
 node_modules/
+
+# Supabase CLI temporary files
+supabase/.temp/

@@ -52,6 +52,13 @@ class App {
                 if (dbData) {
                     this.data = dbData;
                     this.supabaseReady = true;
+                    if (this.currentUser && dbData.users) {
+                        const exists = dbData.users.some(u => u.email === this.currentUser.email);
+                        if (!exists) {
+                            await window.DTMS.logout();
+                            this.currentUser = null;
+                        }
+                    }
                 }
             } catch (err) {
                 console.error('Supabase load error:', err);
@@ -159,6 +166,15 @@ class App {
             // Reload data because RLS may now expose different rows
             const dbData = await window.DTMS.loadAll();
             if (dbData) this.data = dbData;
+            if (dbData && dbData.users) {
+              const stillExists = dbData.users.some(u => u.email === authUser.email);
+              if (!stillExists) {
+                await window.DTMS.logout();
+                this.currentUser = null;
+                alert('Akun ini telah dihapus atau dinonaktifkan. Silakan hubungi administrator.');
+                return;
+              }
+            }
             window.location.hash = '#dashboard';
             return;
         }
@@ -2614,13 +2630,22 @@ getToolingListView() {
         const u=this.data.users[idx];
         if(u.username==='admin'){alert('User admin tidak dapat dihapus.');return;}
         if(!confirm(`Yakin ingin menghapus pengguna "${u.username}" (${u.name})?`))return;
-        this.data.users.splice(idx,1);
         if(window.DTMS && window.DTMS.enabled()){
+            const authResult = await window.DTMS.deleteAuthUser(u.email);
+            if(authResult.error){
+                alert('Gagal menghapus akun: ' + authResult.error.message + '\nPengguna tidak dihapus. Pastikan Edge Function admin-user sudah di-deploy.');
+                return;
+            }
             try{
                 await window.DTMS.deleteUser(userId);
-                const authResult = await window.DTMS.deleteAuthUser(u.email);
-                if(authResult.error) console.warn('Failed to delete auth user (non-critical):', authResult.error.message);
-            }catch(e){console.error(e);alert('Gagal menghapus pengguna di database.');}
+                this.data.users.splice(idx,1);
+            }catch(e){
+                console.error(e);
+                alert('Gagal menghapus pengguna dari database: ' + (e?.message || e));
+                return;
+            }
+        } else {
+            this.data.users.splice(idx,1);
         }
         alert(`Pengguna ${u.username} berhasil dihapus.`);
         document.getElementById('app-layout')?.remove(); this.router();

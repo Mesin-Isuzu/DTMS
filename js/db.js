@@ -9,8 +9,6 @@ const DTMS = (function () {
     !window.DTMS_SUPABASE_ANON_KEY ||
     window.DTMS_SUPABASE_ANON_KEY.includes('your-anon-key');
 
-  const serviceRoleKey = window.DTMS_SUPABASE_SERVICE_ROLE_KEY || '';
-
   let client = null;
   if (!isPlaceholder && window.supabase && window.supabase.createClient) {
     client = window.supabase.createClient(
@@ -236,15 +234,8 @@ const DTMS = (function () {
   async function deleteUser(id) { return remove('users', id); }
 
   // ----------------------------
-  // Auth Admin (service_role)
+  // Auth Admin (via Edge Function)
   // ----------------------------
-  function getAuthHeaders() {
-    return {
-      'Authorization': `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json'
-    };
-  }
-
   function generatePassword() {
     const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
     let pw = '';
@@ -252,57 +243,39 @@ const DTMS = (function () {
     return pw;
   }
 
-  async function getAuthUserIdByEmail(email) {
-    if (!client || !serviceRoleKey) return null;
+  async function _callAdminFunction(action, email, extra = {}) {
+    if (!client) return { error: new Error('Supabase not configured') };
+    const { data: { session } } = await client.auth.getSession();
+    if (!session || !session.access_token) {
+      return { error: new Error('No active session — please log in again') };
+    }
     try {
-      const res = await fetch(`${window.DTMS_SUPABASE_URL}/auth/v1/admin/users`, {
-        method: 'GET',
-        headers: getAuthHeaders()
+      const res = await fetch(`${window.DTMS_SUPABASE_URL}/functions/v1/admin-user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'apikey': window.DTMS_SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ action, email, ...extra })
       });
-      if (!res.ok) return null;
       const data = await res.json();
-      const users = data.users || data;
-      const found = users.find(u => u.email === email);
-      return found ? found.id : null;
+      if (!res.ok) {
+        return { error: new Error(data.error || data.detail || `HTTP ${res.status}`) };
+      }
+      return { error: null, data };
     } catch (e) {
-      console.error('getAuthUserIdByEmail error:', e);
-      return null;
+      console.error(`_callAdminFunction ${action} error:`, e);
+      return { error: e };
     }
   }
 
   async function deleteAuthUser(email) {
-    if (!client || !serviceRoleKey) return { error: new Error('Service role not configured') };
-    try {
-      const userId = await getAuthUserIdByEmail(email);
-      if (!userId) return { error: new Error('User not found in auth') };
-      const res = await fetch(`${window.DTMS_SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
-      if (!res.ok) return { error: new Error(`Failed to delete auth user: ${res.status}`) };
-      return { error: null };
-    } catch (e) {
-      console.error('deleteAuthUser error:', e);
-      return { error: e };
-    }
+    return _callAdminFunction('delete', email);
   }
 
   async function updateAuthPassword(email, newPassword) {
-    if (!client || !serviceRoleKey) return { error: new Error('Service role not configured') };
-    try {
-      const userId = await getAuthUserIdByEmail(email);
-      if (!userId) return { error: new Error('User not found in auth') };
-      const res = await fetch(`${window.DTMS_SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ password: newPassword })
-      });
-      if (!res.ok) return { error: new Error(`Failed to update password: ${res.status}`) };
-      return { error: null };
-    } catch (e) {
-      console.error('updateAuthPassword error:', e);
-      return { error: e };
-    }
+    return _callAdminFunction('update-password', email, { password: newPassword });
   }
 
   // ----------------------------

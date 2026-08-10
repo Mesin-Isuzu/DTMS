@@ -70,6 +70,30 @@
 
 ---
 
+## 6A. Deploy Edge Function `admin-user`
+
+Edge Function ini menangani penghapusan user dan update password di Supabase Auth
+dengan service role key di sisi server (key tidak ter-expose ke client).
+
+1. Install Supabase CLI (jika belum):
+   ```bash
+   npm install -g supabase
+   ```
+2. Login & link ke project (ganti `<PROJECT_REF>` dengan Reference ID dari Supabase > Settings > General):
+   ```bash
+   cd "D:\OpenCode\Aplikasi DTMS"
+   supabase login
+   supabase link --project-ref <PROJECT_REF>
+   ```
+3. Deploy fungsi:
+   ```bash
+   supabase functions deploy admin-user
+   ```
+4. Setel environment variable untuk fungsi (Supabase > Functions > admin-user):
+   - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` sudah otomatis tersedia di runtime Edge Function, tidak perlu diset manual.
+
+---
+
 ## 7. Push Repo ke GitHub
 
 Jika `gh` CLI sudah login:

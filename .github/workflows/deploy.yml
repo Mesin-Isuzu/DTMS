@@ -31,7 +31,6 @@ jobs:
           // Generated automatically by GitHub Actions from repository secrets
           window.DTMS_SUPABASE_URL = '${{ secrets.SUPABASE_URL }}';
           window.DTMS_SUPABASE_ANON_KEY = '${{ secrets.SUPABASE_ANON_KEY }}';
-          window.DTMS_SUPABASE_SERVICE_ROLE_KEY = '${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}';
           EOF
 
       - name: Setup Pages
