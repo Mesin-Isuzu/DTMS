@@ -263,12 +263,12 @@ class App {
                     <form class="login-form" onsubmit="event.preventDefault(); app.login(document.getElementById('username').value, document.getElementById('password').value);">
                         <div class="form-group">
                             <label class="form-label">Username</label>
-                            <input type="text" id="username" class="form-control" placeholder="Masukkan username" required value="admin">
+                            <input type="text" id="username" class="form-control" placeholder="Masukkan username" required value="">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Kata Sandi</label>
                             <div class="password-input-wrapper">
-                                <input type="password" id="password" class="form-control" placeholder="Masukkan kata sandi" required value="password">
+                                <input type="password" id="password" class="form-control" placeholder="Masukkan kata sandi" required value="">
                                 <button type="button" class="password-toggle-btn" onclick="app.togglePasswordVisibility()" tabindex="-1">
                                     <i class="fas fa-eye"></i>
                                 </button>
@@ -276,9 +276,6 @@ class App {
                         </div>
                         <button type="submit" class="login-btn">Masuk ke Portal</button>
                     </form>
-                    <div class="login-footer">
-                        Akun Demo: admin, purchasing, supplier1
-                </div>
             </div>
         `;
     }
