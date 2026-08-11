@@ -543,7 +543,7 @@ getToolingListView() {
                     <h2>${t.name}</h2>
                     <div class="detail-meta">
                         <span><i class="fas fa-tag"></i> ${t.type}</span>
-                        <span><i class="fas fa-car"></i> Model: ${t.model}</span>
+                        <span><i class="fas fa-truck"></i> Model: ${t.model}</span>
                     </div>
                 </div>
                 <div class="header-actions">
