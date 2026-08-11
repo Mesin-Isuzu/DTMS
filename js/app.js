@@ -415,7 +415,7 @@ class App {
                         <h3 class="card-title">Register Induk Tooling</h3>
                     <div class="header-actions">
                         <button class="btn btn-secondary" onclick="app.toggleFilter()"><i class="fas fa-filter"></i> Filter</button>
-                        ${!this.currentUser.role.includes('Supplier') ? `<button class="btn btn-primary" onclick="app.openAddToolingModal()"><i class="fas fa-plus"></i> Daftar Tooling Baru</button>` : ''}
+                        ${this.currentUser.role.includes('Admin') ? `<button class="btn btn-primary" onclick="app.openAddToolingModal()"><i class="fas fa-plus"></i> Daftar Tooling Baru</button>` : ''}
                     </div>
                 </div>
                 <div class="table-toolbar">
@@ -478,7 +478,7 @@ getToolingListView() {
                     <h3 class="card-title">Daftar Tooling/Dies</h3>
                     <div class="header-actions">
                         <button class="btn btn-secondary" onclick="app.toggleFilter()"><i class="fas fa-filter"></i> Saring</button>
-                        ${!this.currentUser.role.includes('Supplier') ? `<button class="btn btn-primary" onclick="app.openAddToolingModal()"><i class="fas fa-plus"></i> Daftar Tooling Baru</button>` : ''}
+                        ${this.currentUser.role.includes('Admin') ? `<button class="btn btn-primary" onclick="app.openAddToolingModal()"><i class="fas fa-plus"></i> Daftar Tooling Baru</button>` : ''}
                     </div>
                 </div>
                 <div class="table-toolbar">
@@ -548,7 +548,7 @@ getToolingListView() {
                 </div>
                 <div class="header-actions">
                     <button class="btn btn-secondary" id="btn-riwayat-perbaikan" onclick="document.getElementById('repair-history-section').scrollIntoView({behavior:'smooth'})"><i class="fas fa-history"></i> Riwayat Perbaikan</button>
-                    <button class="btn btn-primary" onclick="app.openEditToolingModal('${t.id}')"><i class="fas fa-edit"></i> Ubah</button>
+                    ${this.currentUser.role.includes('Admin') ? `<button class="btn btn-primary" onclick="app.openEditToolingModal('${t.id}')"><i class="fas fa-edit"></i> Ubah</button>` : ''}
                 </div>
             </div>
 
@@ -3092,7 +3092,7 @@ getToolingListView() {
         modal.innerHTML = `<div class="modal-content" style="max-width:${modalW}px"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-truck" style="color:var(--accent-color);margin-right:0.5rem"></i>Riwayat Pengiriman Part � ${t.id} (${t.name})</h3><button class="modal-close" onclick="app.closeModal('delivery-log-modal')">&times;</button></div><div class="modal-body" style="max-height:70vh;overflow-y:auto">
             <div style="margin-bottom:0.75rem;display:flex;justify-content:space-between;align-items:center">
                 <div style="display:flex;align-items:center;gap:0.75rem">${pBtns}</div>
-                ${isEd && !isAggregated ? `<button class="btn btn-primary btn-sm" onclick="app.openAddDeliveryModal('${toolId}')"><i class="fas fa-plus"></i> Tambah Pengiriman</button>` : ''}
+                ${isEd && !isAggregated && this.currentUser.role.includes('Admin') ? `<button class="btn btn-primary btn-sm" onclick="app.openAddDeliveryModal('${toolId}')"><i class="fas fa-plus"></i> Tambah Pengiriman</button>` : ''}
             </div>
             <div style="margin-bottom:1rem"><span class="info-label">Total Kirim</span> <span class="font-semibold">${totalDelivered.toLocaleString('id-ID')} pcs</span> &nbsp;|&nbsp; <span class="info-label">QTY OK (terhitung)</span> <span class="font-semibold">${matchedQtyOk.toLocaleString('id-ID')} pcs</span> &nbsp;|&nbsp; <span class="info-label">Reject Ratio</span> <span class="font-bold" style="color:var(--accent-color)">${cumRejectRatio.toFixed(1)}%</span> &nbsp;|&nbsp; <span class="info-label">Periode</span> <span class="font-semibold">${logs.length} ${isAggregated ? 'periode' : 'bulan'}</span></div>
             <div style="background:#f8fafc;border:1px solid var(--border-color);border-radius:var(--border-radius);padding:1rem;margin-bottom:1rem"><canvas id="delivery-chart" width="900" height="320"></canvas></div>
