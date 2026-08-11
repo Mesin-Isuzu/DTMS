@@ -1926,6 +1926,7 @@ getToolingListView() {
 
     // ===== ADD TOOLING MODAL =====
     openAddToolingModal() {
+        if (!this.currentUser.role.includes('Admin')) return;
         const modal = document.createElement('div');
         modal.id='add-tooling-modal'; modal.className='modal-overlay'; modal.style.cssText='display:flex;opacity:1;visibility:visible;';
         const fg=(id,lbl,ph,type)=>`<div class="form-group"><label class="form-label">${lbl}</label><input type="${type||'text'}" id="at-${id}" class="form-control" placeholder="${ph}"></div>`;
@@ -1941,6 +1942,7 @@ getToolingListView() {
         if(!this.currentUser.role.includes('Supplier')) this.initNumberFormat('at-qtyDepreciation');
     }
     async submitAddTooling() {
+        if (!this.currentUser.role.includes('Admin')) return;
         const v=id=>document.getElementById('at-'+id)?.value?.trim()||'';
         if(!v('name')||!v('pn')||!v('supplier')){alert('Harap isi field yang wajib (*).');return;}
         const mapCheck=this._validateMapUrl(v('mapUrl'));
@@ -1957,6 +1959,7 @@ getToolingListView() {
 
     // ===== EDIT TOOLING MODAL =====
     openEditToolingModal(toolId) {
+        if (!this.currentUser.role.includes('Admin')) return;
         const t=this.data.toolings.find(x=>x.id===toolId); if(!t) return;
         const modal = document.createElement('div');
         modal.id='edit-tooling-modal'; modal.className='modal-overlay'; modal.style.cssText='display:flex;opacity:1;visibility:visible;';
@@ -1973,6 +1976,7 @@ getToolingListView() {
         if(!this.currentUser.role.includes('Supplier')) this.initNumberFormat('et-qtyDepreciation');
     }
     async submitEditTooling(toolId) {
+        if (!this.currentUser.role.includes('Admin')) return;
         const t=this.data.toolings.find(x=>x.id===toolId); if(!t) return;
         const v=id=>document.getElementById('et-'+id)?.value?.trim();
         const mapCheck=this._validateMapUrl(v('mapUrl'));
@@ -3194,6 +3198,7 @@ getToolingListView() {
         ctx.fillStyle = '#64748b'; ctx.fillText('Reject Ratio', lgX + 106, lgY);
     }
     openAddDeliveryModal(toolId) {
+        if (!this.currentUser.role.includes('Admin')) return;
         const modal = document.createElement('div');
         modal.id = 'add-delivery-modal'; modal.className = 'modal-overlay'; modal.style.cssText = 'display:flex;opacity:1;visibility:visible;';
         modal.innerHTML = `<div class="modal-content" style="max-width:450px"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-plus-circle" style="color:var(--accent-color);margin-right:0.5rem"></i>Tambah Pengiriman Part</h3><button class="modal-close" onclick="app.closeModal('add-delivery-modal')">&times;</button></div><div class="modal-body">
@@ -3206,6 +3211,7 @@ getToolingListView() {
         this.initNumberFormat('dl-ok');
     }
     async submitAddDelivery(toolId) {
+        if (!this.currentUser.role.includes('Admin')) return;
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const inputDate = document.getElementById('dl-month')?.value;
