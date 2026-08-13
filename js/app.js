@@ -692,7 +692,15 @@ getToolingListView() {
                                 <hr style="border:0; border-top: 1px solid var(--border-color); margin: 0.75rem 0;">
                                 <div class="info-item">
                                     <span class="info-label">Pemeliharaan Terakhir</span>
-                                    <span class="info-value">${t.lastMaintenance}</span>
+                                    <span class="info-value">${(() => {
+                                        const doneLogs = (this.data.maintenanceLogs || []).filter(l => l.toolId === t.id && l.status === 'Selesai');
+                                        let last = null;
+                                        doneLogs.forEach(l => {
+                                            const d = this.parseIndonesianDate(l.dateEnd || l.dateStart || '');
+                                            if (d && (!last || d > last.iso)) last = { iso: d, label: l.dateEnd || l.dateStart };
+                                        });
+                                        return last ? last.label : '-';
+                                    })()}</span>
                                 </div>
                             </div>`;
                             })()}
@@ -2381,7 +2389,7 @@ getToolingListView() {
     }
 
     parseIndonesianDate(str) {
-        const map = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','Mei':'05','Jun':'06','Jul':'07','Agu':'08','Sep':'09','Okt':'10','Nov':'11','Des':'12'};
+        const map = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06','Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12','Mei':'05','Agu':'08','Okt':'10','Des':'12'};
         const p = str.split(' ');
         if (p.length !== 3) return '';
         return `${p[2]}-${map[p[1]]||'01'}-${p[0].padStart(2,'0')}`;
