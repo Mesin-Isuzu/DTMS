@@ -208,19 +208,46 @@ class App {
         return u?.supplierId || null;
     }
 
-    _validateMapUrl(url) {
-        if (!url || url.trim() === '') return true;
+    _isGoogleMapsUrl(url) {
         const lower = url.toLowerCase();
-        if (lower.includes('maps.app.goo.gl')) {
-            return { valid: false, msg: 'URL maps.app.goo.gl tidak bisa ditampilkan di peta. Gunakan URL embed dari Google Maps (Share > Embed a map).' };
+        const host = lower.replace(/^https?:\/\//, '').split(/[/?#]/)[0];
+        return host === 'maps.google.com' || host.endsWith('.google.com') || host === 'google.com';
+    }
+
+    _validateMapUrl(url) {
+        if (!url || url.trim() === '') return { valid: true };
+        const lower = url.toLowerCase().trim();
+        if (lower.includes('maps.app.goo.gl') || lower.includes('goo.gl')) {
+            return { valid: false, msg: 'Short URL Google (maps.app.goo.gl / goo.gl) tidak didukung.\nGunakan link Google Maps biasa dengan ?q=... atau URL embed (Share > Embed a map).' };
         }
-        if (lower.includes('goo.gl')) {
-            return { valid: false, msg: 'Short URL Google tidak bisa di-embed. Gunakan URL embed dari Google Maps (Share > Embed a map).' };
+        if (!/^https?:\/\//.test(lower) || !this._isGoogleMapsUrl(lower)) {
+            return { valid: false, msg: 'URL peta harus berupa link Google Maps, contoh:\nhttps://maps.google.com/?q=-6.2842,106.7442\natau URL embed: https://www.google.com/maps/embed?pb=...' };
         }
-        if (!lower.startsWith('https://www.google.com/maps/embed?')) {
-            return { valid: false, msg: 'URL peta harus dalam format embed Google Maps, contoh:\nhttps://www.google.com/maps/embed?pb=...' };
+        if (lower.includes('/maps/embed')) return { valid: true };
+        let query = '';
+        try { query = new URL(lower).search; } catch (e) { return { valid: false, msg: 'URL peta tidak valid.' }; }
+        const params = new URLSearchParams(query);
+        if (!params.get('q') && !params.get('ll') && !params.get('daddr')) {
+            return { valid: false, msg: 'Link Google Maps harus memuat parameter ?q=... (mis. ?q=-6.2842,106.7442 atau ?q=nama+tempat).\nAtau gunakan URL embed (Share > Embed a map).' };
         }
         return { valid: true };
+    }
+
+    _toEmbedMapUrl(url) {
+        if (!url) return '';
+        const lower = url.toLowerCase();
+        if (lower.includes('/maps/embed')) return url;
+        if (!this._isGoogleMapsUrl(lower)) return url;
+        try {
+            const u = new URL(lower);
+            const q = u.searchParams.get('q');
+            if (q) {
+                const z = u.searchParams.get('z');
+                const embed = `https://maps.google.com/maps?q=${encodeURIComponent(q)}&output=embed`;
+                return z ? `${embed}&z=${encodeURIComponent(z)}` : embed;
+            }
+        } catch (e) { /* fallthrough */ }
+        return url;
     }
 
     updateActiveNav(route) {
@@ -819,7 +846,7 @@ getToolingListView() {
                                 <span class="info-label">Alamat Supplier</span>
                                 <p style="margin:0.25rem 0 0.75rem;color:var(--text-secondary)">${t.supplierAddress || '-'}</p>
                                 <span class="info-label">Lokasi pada Google Map</span>
-                                ${t.mapUrl ? `<iframe src="${t.mapUrl}" width="100%" height="120" style="border:0; border-radius: 8px; margin-top: 0.5rem;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>` : '<div style="background: #f1f5f9; padding: 2rem; text-align: center; border-radius: 8px; margin-top: 0.5rem; color: #64748b;">Belum ada titik lokasi</div>'}
+                                ${t.mapUrl ? `<iframe src="${this._toEmbedMapUrl(t.mapUrl)}" width="100%" height="120" style="border:0; border-radius: 8px; margin-top: 0.5rem;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>` : '<div style="background: #f1f5f9; padding: 2rem; text-align: center; border-radius: 8px; margin-top: 0.5rem; color: #64748b;">Belum ada titik lokasi</div>'}
                             </div>
                         </div>
                     </div>
@@ -1943,7 +1970,7 @@ getToolingListView() {
         const condOpts=['Baik','Perlu Perbaikan','NG'].map(c=>`<option>${c}</option>`).join('');
         const typeOpts=[...new Set(this.data.toolings.map(t=>t.type))].map(o=>`<option>${o}</option>`).join('');
         const modelOpts=[...new Set(this.data.toolings.map(t=>t.model).filter(m=>m&&m!=='-'))].map(o=>`<option>${o}</option>`).join('');
-        modal.innerHTML=`<div class="modal-content" style="max-width:640px;max-height:90vh"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-plus-circle" style="color:var(--accent-color);margin-right:0.5rem"></i>Daftar Tooling Baru</h3><button class="modal-close" onclick="app.closeModal('add-tooling-modal')">&times;</button></div><div class="modal-body" style="overflow-y:auto"><div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">${fg('name','Nama Tooling/Dies *','Contoh: Front Door Panel Die')}<div class="form-group"><label class="form-label">Tipe <span style="color:var(--danger-color)">*</span></label><select id="at-type" class="form-control">${typeOpts}</select></div><div class="form-group"><label class="form-label">Part Number *</label><input id="at-pn" class="form-control" placeholder="Contoh: PN-FD-001"></div>${fg('partName','Nama Part','Contoh: Pintu Depan Kiri')}<div class="form-group"><label class="form-label">Model</label><select id="at-model" class="form-control">${modelOpts}</select></div>${fg('supplier','Supplier *','Contoh: PT Auto Parts')}${fg('supplierAddress','Alamat Supplier','Contoh: Jl. Industri Raya No. 123')}${fg('mapUrl','Google Maps Embed URL','Contoh: https://www.google.com/maps/embed?pb=...')}<div class="form-group"><label class="form-label">Kepemilikan</label><select id="at-owner" class="form-control"><option>Milik MII</option><option>Milik Supplier</option><option>Milik Pelanggan</option></select></div><div class="form-group"><label class="form-label">Status</label><select id="at-status" class="form-control">${statOpts}</select></div><div class="form-group"><label class="form-label">Kondisi</label><select id="at-cond" class="form-control">${condOpts}</select></div>${fg('maker','Tool/Dies Maker','')}${fg('weight','Berat','Contoh: 5,500 kg')}${fg('tonnage','Tonase Mesin','Contoh: 1,200 Ton')}${fg('dimensions','Dimensi (PxLxT)','Contoh: 1500 x 800 x 950 mm')}${fg('material','Material','Contoh: SKD11 / P20')}${fg('price','Harga','Contoh: Rp 450.000.000')}${fg('pic','PIC','Contoh: Ahmad S.')}${fg('picEmail','Email PIC','Contoh: ahmad@supplier.com')}${fg('picPhone','Telepon PIC','Contoh: +62 812-3456-7890')}${fgNum('maxShoot','Maximum Shoot','Contoh: 1000000')}${fgNum('qtyPerTooling','Qty Part per Tooling','Contoh: 1')}${fg('paNumber','No. PO/Tooling PA','Contoh: PA-2023-0098')}${!this.currentUser.role.includes('Supplier') ? `<div class="form-group"><label class="form-label">QTY Depresiasi (pcs)</label><input type="text" id="at-qtyDepreciation" class="form-control" placeholder="Contoh: 500000"></div>${fg('depreciationValue','Periode Depresiasi (tahun)','Contoh: 5')}` : ''}</div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="app.closeModal('add-tooling-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitAddTooling()"><i class="fas fa-save"></i> Simpan</button></div></div>`;
+        modal.innerHTML=`<div class="modal-content" style="max-width:640px;max-height:90vh"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-plus-circle" style="color:var(--accent-color);margin-right:0.5rem"></i>Daftar Tooling Baru</h3><button class="modal-close" onclick="app.closeModal('add-tooling-modal')">&times;</button></div><div class="modal-body" style="overflow-y:auto"><div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">${fg('name','Nama Tooling/Dies *','Contoh: Front Door Panel Die')}<div class="form-group"><label class="form-label">Tipe <span style="color:var(--danger-color)">*</span></label><select id="at-type" class="form-control">${typeOpts}</select></div><div class="form-group"><label class="form-label">Part Number *</label><input id="at-pn" class="form-control" placeholder="Contoh: PN-FD-001"></div>${fg('partName','Nama Part','Contoh: Pintu Depan Kiri')}<div class="form-group"><label class="form-label">Model</label><select id="at-model" class="form-control">${modelOpts}</select></div>${fg('supplier','Supplier *','Contoh: PT Auto Parts')}${fg('supplierAddress','Alamat Supplier','Contoh: Jl. Industri Raya No. 123')}${fg('mapUrl','Link Google Maps','Contoh: https://maps.google.com/?q=-6.2842,106.7442 atau https://www.google.com/maps/embed?pb=...')}<div class="form-group"><label class="form-label">Kepemilikan</label><select id="at-owner" class="form-control"><option>Milik MII</option><option>Milik Supplier</option><option>Milik Pelanggan</option></select></div><div class="form-group"><label class="form-label">Status</label><select id="at-status" class="form-control">${statOpts}</select></div><div class="form-group"><label class="form-label">Kondisi</label><select id="at-cond" class="form-control">${condOpts}</select></div>${fg('maker','Tool/Dies Maker','')}${fg('weight','Berat','Contoh: 5,500 kg')}${fg('tonnage','Tonase Mesin','Contoh: 1,200 Ton')}${fg('dimensions','Dimensi (PxLxT)','Contoh: 1500 x 800 x 950 mm')}${fg('material','Material','Contoh: SKD11 / P20')}${fg('price','Harga','Contoh: Rp 450.000.000')}${fg('pic','PIC','Contoh: Ahmad S.')}${fg('picEmail','Email PIC','Contoh: ahmad@supplier.com')}${fg('picPhone','Telepon PIC','Contoh: +62 812-3456-7890')}${fgNum('maxShoot','Maximum Shoot','Contoh: 1000000')}${fgNum('qtyPerTooling','Qty Part per Tooling','Contoh: 1')}${fg('paNumber','No. PO/Tooling PA','Contoh: PA-2023-0098')}${!this.currentUser.role.includes('Supplier') ? `<div class="form-group"><label class="form-label">QTY Depresiasi (pcs)</label><input type="text" id="at-qtyDepreciation" class="form-control" placeholder="Contoh: 500000"></div>${fg('depreciationValue','Periode Depresiasi (tahun)','Contoh: 5')}` : ''}</div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="app.closeModal('add-tooling-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitAddTooling()"><i class="fas fa-save"></i> Simpan</button></div></div>`;
         document.body.appendChild(modal); document.body.style.overflow='hidden';
         this.initNumberFormat('at-maxShoot');
         this.initNumberFormat('at-qtyPerTooling');
@@ -1977,7 +2004,7 @@ getToolingListView() {
         const condOpts=['Baik','Perlu Perbaikan','NG'].map(c=>`<option ${c===t.condition?'selected':''}>${c}</option>`).join('');
         const typeOpts=[...new Set(this.data.toolings.map(t=>t.type))].map(o=>`<option ${o===t.type?'selected':''}>${o}</option>`).join('');
         const modelOpts=[...new Set(this.data.toolings.map(t=>t.model).filter(m=>m&&m!=='-'))].map(o=>`<option ${o===t.model?'selected':''}>${o}</option>`).join('');
-        modal.innerHTML=`<div class="modal-content" style="max-width:640px;max-height:90vh"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-edit" style="color:var(--accent-color);margin-right:0.5rem"></i>Ubah Tooling: ${toolId}</h3><button class="modal-close" onclick="app.closeModal('edit-tooling-modal')">&times;</button></div><div class="modal-body" style="overflow-y:auto"><div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">${fg('name','Nama',t.name)}<div class="form-group"><label class="form-label">Tipe</label><select id="et-type" class="form-control">${typeOpts}</select></div><div class="form-group"><label class="form-label">Status</label><select id="et-status" class="form-control">${statOpts}</select></div><div class="form-group"><label class="form-label">Kondisi</label><select id="et-cond" class="form-control">${condOpts}</select></div><div class="form-group"><label class="form-label">Model</label><select id="et-model" class="form-control">${modelOpts}</select></div>${fg('supplier','Supplier',t.supplier)}${fg('supplierAddress','Alamat Supplier',t.supplierAddress)}${fg('mapUrl','Google Maps Embed URL',t.mapUrl)}${fg('maker','Maker',t.maker)}${fg('weight','Berat',t.weight)}${fg('tonnage','Tonase',t.tonnage)}${fg('material','Material',t.material)}${fg('price','Harga',t.price)}${fg('pic','PIC',t.pic)}${fg('picEmail','Email PIC',t.picEmail)}${fg('picPhone','Telepon PIC',t.picPhone)}${fgNum('maxShoot','Maximum Shoot',t.maxShoot)}${fgNum('qtyPerTooling','Qty Part per Tooling',parseInt((t.qtyPerTooling||'').replace(/,/g,'')))}${!this.currentUser.role.includes('Supplier') ? fgNum('qtyDepreciation','QTY Depresiasi (pcs)',parseInt((t.qtyDepreciation||'').replace(/,/g,'')))+fg('depreciationValue','Periode Depresiasi (tahun)',t.depreciationValue||'') : ''}</div></div><div class="modal-footer">${this.currentUser.role.includes('Admin') ? `<button type="button" class="btn btn-secondary" onclick="app.closeModal('edit-tooling-modal');app.openDrawingDiesModal('${toolId}')"><i class="fas fa-upload"></i> Upload Drawing</button>` : ''}<button class="btn btn-secondary" onclick="app.closeModal('edit-tooling-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitEditTooling('${toolId}')"><i class="fas fa-save"></i> Simpan</button></div></div>`;
+        modal.innerHTML=`<div class="modal-content" style="max-width:640px;max-height:90vh"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-edit" style="color:var(--accent-color);margin-right:0.5rem"></i>Ubah Tooling: ${toolId}</h3><button class="modal-close" onclick="app.closeModal('edit-tooling-modal')">&times;</button></div><div class="modal-body" style="overflow-y:auto"><div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">${fg('name','Nama',t.name)}<div class="form-group"><label class="form-label">Tipe</label><select id="et-type" class="form-control">${typeOpts}</select></div><div class="form-group"><label class="form-label">Status</label><select id="et-status" class="form-control">${statOpts}</select></div><div class="form-group"><label class="form-label">Kondisi</label><select id="et-cond" class="form-control">${condOpts}</select></div><div class="form-group"><label class="form-label">Model</label><select id="et-model" class="form-control">${modelOpts}</select></div>${fg('supplier','Supplier',t.supplier)}${fg('supplierAddress','Alamat Supplier',t.supplierAddress)}${fg('mapUrl','Link Google Maps',t.mapUrl)}${fg('maker','Maker',t.maker)}${fg('weight','Berat',t.weight)}${fg('tonnage','Tonase',t.tonnage)}${fg('material','Material',t.material)}${fg('price','Harga',t.price)}${fg('pic','PIC',t.pic)}${fg('picEmail','Email PIC',t.picEmail)}${fg('picPhone','Telepon PIC',t.picPhone)}${fgNum('maxShoot','Maximum Shoot',t.maxShoot)}${fgNum('qtyPerTooling','Qty Part per Tooling',parseInt((t.qtyPerTooling||'').replace(/,/g,'')))}${!this.currentUser.role.includes('Supplier') ? fgNum('qtyDepreciation','QTY Depresiasi (pcs)',parseInt((t.qtyDepreciation||'').replace(/,/g,'')))+fg('depreciationValue','Periode Depresiasi (tahun)',t.depreciationValue||'') : ''}</div></div><div class="modal-footer">${this.currentUser.role.includes('Admin') ? `<button type="button" class="btn btn-secondary" onclick="app.closeModal('edit-tooling-modal');app.openDrawingDiesModal('${toolId}')"><i class="fas fa-upload"></i> Upload Drawing</button>` : ''}<button class="btn btn-secondary" onclick="app.closeModal('edit-tooling-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitEditTooling('${toolId}')"><i class="fas fa-save"></i> Simpan</button></div></div>`;
         document.body.appendChild(modal); document.body.style.overflow='hidden';
         this.initNumberFormat('et-maxShoot');
         this.initNumberFormat('et-qtyPerTooling');
