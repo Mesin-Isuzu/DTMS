@@ -199,10 +199,10 @@ insert into public."movementLogs" ("id", "toolId", "toolName", "fromLocation", "
 insert into public."movementLogs" ("id", "toolId", "toolName", "fromLocation", "toLocation", "date", "reason", "status", "requestedBy") values ('MV-002', 'T-2025-004', 'Roof Panel Die', 'Plant A - Press Line 2', 'Workshop Maintenance', '06 Aug 2025', 'Pemindahan untuk perbaikan', 'Menunggu Persetujuan', 'Admin User') on conflict do nothing;
 
 -- notifications
-insert into public."notifications" ("userId", "message", "time", "read", "type") values (null, 'Repair request T-2025-002 menunggu persetujuan', '10 menit lalu', false, 'warning') on conflict do nothing;
-insert into public."notifications" ("userId", "message", "time", "read", "type") values (null, 'Movement T-2025-004 telah disetujui', '1 jam lalu', false, 'success') on conflict do nothing;
-insert into public."notifications" ("userId", "message", "time", "read", "type") values (null, 'Maintenance preventive T-2025-001 dijadwalkan besok', '3 jam lalu', true, 'info') on conflict do nothing;
-insert into public."notifications" ("userId", "message", "time", "read", "type") values (null, 'Tooling T-2025-003 mendekati batas akhir masa pakai', '5 jam lalu', true, 'danger') on conflict do nothing;
+insert into public."notifications" ("userId", "message", "time", "read", "type", "route") values ((select "id" from public."users" where "username" = 'purchasing' limit 1), 'Repair request T-2025-002 menunggu persetujuan', '10 menit lalu', false, 'warning', '#maintenance') on conflict do nothing;
+insert into public."notifications" ("userId", "message", "time", "read", "type", "route") values ((select "id" from public."users" where "username" = 'supplier1' limit 1), 'Movement T-2025-004 telah disetujui', '1 jam lalu', false, 'success', '#tooling/T-2025-004') on conflict do nothing;
+insert into public."notifications" ("userId", "message", "time", "read", "type", "route") values ((select "id" from public."users" where "username" = 'supplier1' limit 1), 'Maintenance preventive T-2025-001 dijadwalkan besok', '3 jam lalu', true, 'info', '#tooling/T-2025-001') on conflict do nothing;
+insert into public."notifications" ("userId", "message", "time", "read", "type", "route") values ((select "id" from public."users" where "username" = 'supplier3' limit 1), 'Tooling T-2025-003 mendekati batas akhir masa pakai', '5 jam lalu', true, 'danger', '#tooling/T-2025-003') on conflict do nothing;
 
 -- auditLogs
 insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('Hari ini, 10:30', (select "id" from public."users" where "name" = 'Budi Santoso' limit 1), 'Budi Santoso', 'Mengajukan repair request untuk T-2025-002', 'fa-wrench', '#f59e0b') on conflict do nothing;

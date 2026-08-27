@@ -546,10 +546,10 @@ const mockData = {
 
 
     notifications: [
-        { id: 1, message: 'Repair request T-2025-002 menunggu persetujuan', time: '10 menit lalu', read: false, type: 'warning' },
-        { id: 2, message: 'Movement T-2025-004 telah disetujui', time: '1 jam lalu', read: false, type: 'success' },
-        { id: 3, message: 'Maintenance preventive T-2025-001 dijadwalkan besok', time: '3 jam lalu', read: true, type: 'info' },
-        { id: 4, message: 'Tooling T-2025-003 mendekati batas akhir masa pakai', time: '5 jam lalu', read: true, type: 'danger' }
+        { id: 1, username: 'purchasing', message: 'Repair request T-2025-002 menunggu persetujuan', time: '10 menit lalu', read: false, type: 'warning', route: '#maintenance' },
+        { id: 2, username: 'supplier1', message: 'Movement T-2025-004 telah disetujui', time: '1 jam lalu', read: false, type: 'success', route: '#tooling/T-2025-004' },
+        { id: 3, username: 'supplier1', message: 'Maintenance preventive T-2025-001 dijadwalkan besok', time: '3 jam lalu', read: true, type: 'info', route: '#tooling/T-2025-001' },
+        { id: 4, username: 'supplier3', message: 'Tooling T-2025-003 mendekati batas akhir masa pakai', time: '5 jam lalu', read: true, type: 'danger', route: '#tooling/T-2025-003' }
     ],
 
     auditLogs: [

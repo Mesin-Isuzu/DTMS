@@ -413,8 +413,11 @@ create table if not exists public."notifications" (
   "time" text,
   "read" boolean default false,
   "type" text,
+  "route" text,
   "createdAt" timestamptz default now()
 );
+
+alter table public."notifications" add column if not exists "route" text;
 
 alter table public."notifications" enable row level security;
 

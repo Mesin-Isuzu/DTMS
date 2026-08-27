@@ -411,7 +411,7 @@ class App {
                         <div class="header-actions">
                             <button class="notification-btn" title="Notifikasi" onclick="app.toggleNotifications()">
                                 <i class="far fa-bell"></i>
-                                <span class="notification-badge">${(this.data.notifications||[]).filter(n=>!n.read).length || ''}</span>
+                                <span class="notification-badge">${this.getMyNotifications().filter(n=>!n.read).length || ''}</span>
                             </button>
                             <div id="notification-panel" class="notification-panel" style="display:none;"></div>
                         </div>
@@ -1684,14 +1684,50 @@ getToolingListView() {
     }
 
     // ===== NOTIFICATIONS =====
+    getMyNotifications() {
+        const all = this.data.notifications || [];
+        if (this.currentUser.role === 'Admin Sistem') return all;
+        return all.filter(x => {
+            if (x.username) return x.username === this.currentUser.username;
+            return true;
+        });
+    }
+
     toggleNotifications() {
         const p = document.getElementById('notification-panel');
         if (!p) return;
         if (p.style.display === 'none') {
-            const n = this.data.notifications || [];
-            p.innerHTML = `<div style="padding:1rem;border-bottom:1px solid var(--border-color);font-weight:600;font-size:0.9rem">Notifikasi</div>${n.map(x=>`<div style="padding:0.75rem 1rem;border-bottom:1px solid var(--border-color);font-size:0.85rem;background:${x.read?'white':'#eff6ff'};cursor:pointer"><div>${x.message}</div><div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.25rem">${x.time}</div></div>`).join('')}${n.length===0?'<div style="padding:2rem;text-align:center;color:var(--text-secondary)">Tidak ada notifikasi</div>':''}`;
+            const n = this.getMyNotifications();
+            p.innerHTML = `<div style="padding:1rem;border-bottom:1px solid var(--border-color);font-weight:600;font-size:0.9rem">Notifikasi</div>${n.map(x=>`<div style="padding:0.75rem 1rem;border-bottom:1px solid var(--border-color);font-size:0.85rem;background:${x.read?'white':'#eff6ff'};cursor:pointer" onclick="app.openNotification(${x.id},'${x.route||''}')"><div>${x.message}</div><div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.25rem">${x.time}</div></div>`).join('')}${n.length===0?'<div style="padding:2rem;text-align:center;color:var(--text-secondary)">Tidak ada notifikasi</div>':''}`;
             p.style.display = 'block';
+            setTimeout(() => {
+                document.addEventListener('click', function handler(e) {
+                    if (e.target.closest('#notification-panel') || e.target.closest('.notification-btn')) return;
+                    const el = document.getElementById('notification-panel');
+                    if (el) el.style.display = 'none';
+                    document.removeEventListener('click', handler);
+                });
+            }, 0);
         } else { p.style.display = 'none'; }
+    }
+
+    async openNotification(id, route) {
+        const p = document.getElementById('notification-panel');
+        if (p) p.style.display = 'none';
+        const n = (this.data.notifications||[]).find(x => x.id === id);
+        if (!n) return;
+        if (!n.read) {
+            n.read = true;
+            if (window.DTMS && window.DTMS.enabled()) {
+                try { await window.DTMS.updateNotification(id, { read: true }); } catch (e) { console.error('Gagal update notifikasi:', e); }
+            }
+            const badge = document.querySelector('.notification-badge');
+            if (badge) {
+                const unread = this.getMyNotifications().filter(x => !x.read).length;
+                badge.textContent = unread || '';
+            }
+        }
+        if (route) window.location.hash = route;
     }
 
     // ===== FILTER =====

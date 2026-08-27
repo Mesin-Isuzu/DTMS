@@ -138,9 +138,9 @@ out.push('');
 // Notifications
 out.push('-- notifications');
 d.notifications.forEach(n => {
-  const obj = { ...n, userId: null, read: n.read || false };
-  delete obj.id;
-  out.push(rowSql('notifications', obj, ['userId', 'message', 'time', 'read', 'type']));
+  const username = n.username || null;
+  const userIdExpr = username ? `(select "id" from public."users" where "username" = ${esc(username)} limit 1)` : 'null';
+  out.push(`insert into public."notifications" ("userId", "message", "time", "read", "type", "route") values (${userIdExpr}, ${esc(n.message)}, ${esc(n.time)}, ${n.read ? 'true' : 'false'}, ${esc(n.type || null)}, ${esc(n.route || null)}) on conflict do nothing;`);
 });
 out.push('');
 
