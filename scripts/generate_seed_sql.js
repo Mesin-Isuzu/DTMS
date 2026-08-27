@@ -27,7 +27,7 @@ function esc(v) {
 
 function rowSql(table, obj, columns) {
   const vals = columns.map(c => esc(obj[c]));
-  return `insert into public."${table}" (${columns.map(c => '"' + c + '"').join(', ')}) values (${vals.join(', ')});`;
+  return `insert into public."${table}" (${columns.map(c => '"' + c + '"').join(', ')}) values (${vals.join(', ')}) on conflict do nothing;`;
 }
 
 // Supplier mapping
