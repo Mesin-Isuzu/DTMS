@@ -9,5 +9,7 @@ TRUNCATE TABLE
   public."supplierTasks",
   public."maintenanceLogs",
   public."toolings",
-  public."users"
+  public."users",
+  public."dieTypes",
+  public."productModels"
 CASCADE;
