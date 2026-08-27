@@ -112,6 +112,10 @@ class App {
                 contentArea.innerHTML = this.getSupplierTasksView();
                 break;
             case 'suppliers':
+                if (this.currentUser.role === 'Pengguna Supplier') {
+                    window.location.hash = '#dashboard';
+                    return;
+                }
                 contentArea.innerHTML = this.getSuppliersView();
                 break;
             case 'maintenance':
@@ -416,7 +420,7 @@ class App {
                     <nav class="sidebar-nav">
                         <a href="#dashboard" class="nav-item"><i class="fas fa-home"></i> Ringkasan Dashboard</a>
                         <a href="#supplier-tasks" class="nav-item"><i class="fas fa-tasks"></i> Tugas Supplier</a>
-                        <a href="#suppliers" class="nav-item"><i class="fas fa-building"></i> Daftar Supplier</a>
+                        ${!this.currentUser.role.includes('Supplier') ? `<a href="#suppliers" class="nav-item"><i class="fas fa-building"></i> Daftar Supplier</a>` : ''}
                         ${!this.currentUser.role.includes('Supplier') ? `<a href="#reports" class="nav-item"><i class="fas fa-chart-bar"></i> Laporan & KPI</a>` : ''}
                         ${this.currentUser.role.includes('Admin') ? `<a href="#admin" class="nav-item"><i class="fas fa-cog"></i> Pengaturan Admin</a>` : ''}
                     </nav>
