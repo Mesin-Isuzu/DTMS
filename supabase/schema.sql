@@ -247,8 +247,14 @@ create policy "maintenance_select" on public."maintenanceLogs"
 drop policy if exists "maintenance_write" on public."maintenanceLogs";
 create policy "maintenance_write" on public."maintenanceLogs"
   for all to authenticated
-  using (public.can_access_all_toolings())
-  with check (public.can_access_all_toolings());
+  using (
+    public.can_access_all_toolings()
+    or (public.is_supplier() and public.get_my_supplier_id() = (select "supplierId" from public."toolings" where "id" = "toolId"))
+  )
+  with check (
+    public.can_access_all_toolings()
+    or (public.is_supplier() and public.get_my_supplier_id() = (select "supplierId" from public."toolings" where "id" = "toolId"))
+  );
 
 -- ------------------------------------------------------------
 -- 7. Supplier tasks
@@ -312,8 +318,14 @@ create policy "shootLogs_select" on public."shootLogs"
 drop policy if exists "shootLogs_write" on public."shootLogs";
 create policy "shootLogs_write" on public."shootLogs"
   for all to authenticated
-  using (public.can_access_all_toolings())
-  with check (public.can_access_all_toolings());
+  using (
+    public.can_access_all_toolings()
+    or (public.is_supplier() and public.get_my_supplier_id() = (select "supplierId" from public."toolings" where "id" = "toolId"))
+  )
+  with check (
+    public.can_access_all_toolings()
+    or (public.is_supplier() and public.get_my_supplier_id() = (select "supplierId" from public."toolings" where "id" = "toolId"))
+  );
 
 -- ------------------------------------------------------------
 -- 9. Production logs

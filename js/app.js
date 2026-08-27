@@ -1438,6 +1438,7 @@ getToolingListView() {
             removed.forEach(idx => { currentEvidence.splice(idx, 1); currentPaths.splice(idx, 1); });
         }
         const afterRead = async (nameArr, pathArr) => {
+            const prevEvidence = t.evidence, prevEvidencePath = t.evidencePath;
             const allNames = [...currentEvidence, ...(nameArr || [])];
             const allPaths = [...currentPaths, ...(pathArr || [])];
             t.evidence = allNames.length ? (allNames.length === 1 ? allNames[0] : allNames.join(', ')) : null;
@@ -1445,7 +1446,7 @@ getToolingListView() {
             delete t.evidenceData;
             if (window.DTMS && window.DTMS.enabled()) {
                 try { await window.DTMS.updateSupplierTask(taskId, t); }
-                catch (e) { console.error(e); alert('Gagal memperbarui tugas di database.'); }
+                catch (e) { console.error(e); t.evidence = prevEvidence; t.evidencePath = prevEvidencePath; alert('Gagal memperbarui tugas di database: ' + (e?.message || e)); return; }
             }
             this.closeModal('edit-task-modal');
             alert(`Tugas ${taskId} berhasil diperbarui!`);
@@ -1553,6 +1554,7 @@ getToolingListView() {
             removed.forEach(idx => { currentEvidence.splice(idx, 1); currentPaths.splice(idx, 1); });
         }
         const afterRead = async (nameArr, pathArr) => {
+            const prevEvidence = t.evidence, prevEvidencePath = t.evidencePath;
             const allNames = [...currentEvidence, ...(nameArr || [])];
             const allPaths = [...currentPaths, ...(pathArr || [])];
             t.evidence = allNames.length ? (allNames.length === 1 ? allNames[0] : allNames.join(', ')) : null;
@@ -1560,7 +1562,7 @@ getToolingListView() {
             delete t.evidenceData;
             if (window.DTMS && window.DTMS.enabled()) {
                 try { await window.DTMS.updateSupplierTask(taskId, t); }
-                catch (e) { console.error(e); alert('Gagal menyimpan evidence ke database.'); }
+                catch (e) { console.error(e); t.evidence = prevEvidence; t.evidencePath = prevEvidencePath; alert('Gagal menyimpan evidence ke database: ' + (e?.message || e)); return; }
             }
             this.closeModal('task-evidence-modal');
             alert('Evidence berhasil disimpan!');
@@ -2578,12 +2580,7 @@ getToolingListView() {
         const fileInput=document.getElementById('rp-evidence');
         const files=fileInput?.files;
         if(!dateStart||!desc){alert('Harap isi tanggal mulai dan deskripsi perbaikan.');return;}
-        const year=new Date().getFullYear();
-        const maxId=this.data.maintenanceLogs.reduce((max,l)=>{
-            const m=l.id.match(/MR-(\d+)-(\d+)/);
-            return m&&m[1]===String(year)?Math.max(max,parseInt(m[2])):max;
-        },0);
-        const newId=`MR-${year}-${String(maxId+1).padStart(3,'0')}`;
+        const newId=`MR-${Date.now()}`;
         const fmtDateStart=new Date(dateStart).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
         const fmtDateEnd=dateEnd?new Date(dateEnd).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):null;
         const afterRead=async(nameArr, pathArr)=>{
@@ -2593,10 +2590,10 @@ getToolingListView() {
                 evidencePath:pathArr? (pathArr.length===1?pathArr[0]:pathArr.join(', ')) : '',
                 requestedBy:this.currentUser.name
             };
-            this.data.maintenanceLogs.unshift(newLog);
             if(window.DTMS && window.DTMS.enabled()){
-                try{await window.DTMS.insertMaintenanceLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan perbaikan ke database.');}
+                try{await window.DTMS.insertMaintenanceLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan perbaikan ke database: '+(e?.message||e));return;}
             }
+            this.data.maintenanceLogs.unshift(newLog);
             this.closeModal('add-repair-modal');
             alert(`Riwayat perbaikan ${newId} berhasil ditambahkan!`);
             document.getElementById('app-layout')?.remove(); this.router();
@@ -2666,11 +2663,12 @@ getToolingListView() {
         const afterRead=async(nameArr, pathArr)=>{
             const fmtDateStart=new Date(dateStart).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
             const fmtDateEnd=dateEnd?new Date(dateEnd).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):null;
+            const prev={dateStart:l.dateStart,dateEnd:l.dateEnd,type:l.type,description:l.description,status:l.status,evidence:l.evidence,evidencePath:l.evidencePath};
             l.dateStart=fmtDateStart; l.dateEnd=fmtDateEnd; l.type=type; l.description=desc; l.status=status;
             if(nameArr){l.evidence=nameArr.length===1?nameArr[0]:nameArr.join(', '); l.evidencePath=pathArr.length===1?pathArr[0]:pathArr.join(', ');}
             delete l.evidenceData;
             if(window.DTMS && window.DTMS.enabled()){
-                try{await window.DTMS.updateMaintenanceLog(logId, l);}catch(e){console.error(e);alert('Gagal memperbarui perbaikan di database.');}
+                try{await window.DTMS.updateMaintenanceLog(logId, l);}catch(e){console.error(e);Object.assign(l,prev);alert('Gagal memperbarui perbaikan di database: '+(e?.message||e));return;}
             }
             this.closeModal('edit-repair-modal');
             alert(`Riwayat perbaikan ${logId} berhasil diperbarui!`);
@@ -2709,10 +2707,10 @@ getToolingListView() {
         const idx=this.data.maintenanceLogs.findIndex(x=>x.id===logId);
         if(idx===-1) return;
         if(!confirm(`Yakin ingin menghapus riwayat perbaikan ${logId}?`)) return;
-        this.data.maintenanceLogs.splice(idx,1);
         if(window.DTMS && window.DTMS.enabled()){
-            try{await window.DTMS.deleteMaintenanceLog(logId);}catch(e){console.error(e);alert('Gagal menghapus perbaikan di database.');}
+            try{await window.DTMS.deleteMaintenanceLog(logId);}catch(e){console.error(e);alert('Gagal menghapus perbaikan di database: '+(e?.message||e));return;}
         }
+        this.data.maintenanceLogs.splice(idx,1);
         alert(`Riwayat perbaikan ${logId} berhasil dihapus.`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
@@ -3075,16 +3073,12 @@ getToolingListView() {
         const date = inputDate.slice(0, 7);
         const existingLogs = (this.data.shootLogs || []).filter(l => l.toolId === toolId);
         if (existingLogs.some(l => l.month === date)) { alert(`Bulan ${date} sudah ada data shoot. Silakan edit data yang sudah ada.`); return; }
-        const maxId = this.data.shootLogs.reduce((max, l) => {
-            const m = l.id.match(/SH-(\d+)/);
-            return m ? Math.max(max, parseInt(m[1])) : max;
-        }, 0);
-        const newId = `SH-${String(maxId + 1).padStart(3, '0')}`;
+        const newId = `SH-${Date.now()}`;
         const newLog={ id: newId, toolId, month: date, inputDate, shootCount: count };
-        this.data.shootLogs.push(newLog);
         if(window.DTMS && window.DTMS.enabled()){
-            try{await window.DTMS.insertShootLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan shoot log ke database.');}
+            try{await window.DTMS.insertShootLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan shoot log ke database: '+(e?.message||e));return;}
         }
+        this.data.shootLogs.push(newLog);
         const logs = this.data.shootLogs.filter(l => l.toolId === toolId).sort((a, b) => a.month.localeCompare(b.month));
         const maxLife = t.maxShoot || 1000000;
         let cum = 0; logs.forEach(l => cum += l.shootCount);
@@ -3116,9 +3110,10 @@ getToolingListView() {
         const date = inputDate.slice(0, 7);
         const allLogs = (this.data.shootLogs || []).filter(x => x.toolId === l.toolId && x.id !== shootId);
         if (allLogs.some(x => x.month === date)) { alert(`Bulan ${date} sudah ada data shoot. Silakan edit data yang sudah ada.`); return; }
+        const prevMonth=l.month, prevInputDate=l.inputDate, prevCount=l.shootCount;
         l.month = date; l.inputDate = inputDate; l.shootCount = count;
         if(window.DTMS && window.DTMS.enabled()){
-            try{await window.DTMS.updateShootLog(shootId, l);}catch(e){console.error(e);alert('Gagal memperbarui shoot log di database.');}
+            try{await window.DTMS.updateShootLog(shootId, l);}catch(e){console.error(e);l.month=prevMonth;l.inputDate=prevInputDate;l.shootCount=prevCount;alert('Gagal memperbarui shoot log di database: '+(e?.message||e));return;}
         }
         const t = this.data.toolings.find(x => x.id === l.toolId);
         if (t) {
@@ -3136,10 +3131,10 @@ getToolingListView() {
         const idx = this.data.shootLogs.findIndex(x => x.id === shootId);
         if (idx === -1) return;
         if (!confirm(`Yakin ingin menghapus riwayat shoot ${shootId}?`)) return;
-        this.data.shootLogs.splice(idx, 1);
         if(window.DTMS && window.DTMS.enabled()){
-            try{await window.DTMS.deleteShootLog(shootId);}catch(e){console.error(e);alert('Gagal menghapus shoot log di database.');}
+            try{await window.DTMS.deleteShootLog(shootId);}catch(e){console.error(e);alert('Gagal menghapus shoot log di database: '+(e?.message||e));return;}
         }
+        this.data.shootLogs.splice(idx, 1);
         const t = this.data.toolings.find(x => x.id === toolId);
         if (t) {
             const logs = this.data.shootLogs.filter(x => x.toolId === toolId).sort((a, b) => a.month.localeCompare(b.month));
@@ -3190,12 +3185,12 @@ getToolingListView() {
         const qty = parseInt(t.qtyPerTooling) || 1;
         const totalExp = sl.shootCount * qty;
         if (okRaw > totalExp) { alert(`Actual Part OK (${okRaw.toLocaleString('id-ID')}) tidak boleh melebihi Total Expected (${totalExp.toLocaleString('id-ID')}).`); return; }
-        const id = 'PR-' + String((this.data.productionLogs.length + 1)).padStart(3, '0');
+        const id = 'PR-' + Date.now();
         const newLog={ id, toolId, shootLogId, actualPartOk: okRaw };
-        this.data.productionLogs.push(newLog);
         if(window.DTMS && window.DTMS.enabled()){
-            try{await window.DTMS.insertProductionLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan produksi ke database.');}
+            try{await window.DTMS.insertProductionLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan produksi ke database: '+(e?.message||e));return;}
         }
+        this.data.productionLogs.push(newLog);
         this.closeModal('add-production-modal');
         alert(`Data produksi ${id} berhasil ditambahkan!`);
         document.getElementById('app-layout')?.remove(); this.router();
@@ -3232,9 +3227,10 @@ getToolingListView() {
         const qty = parseInt(t.qtyPerTooling) || 1;
         const totalExp = sl.shootCount * qty;
         if (okRaw > totalExp) { alert(`Actual Part OK (${okRaw.toLocaleString('id-ID')}) tidak boleh melebihi Total Expected (${totalExp.toLocaleString('id-ID')}).`); return; }
+        const prevOk = p.actualPartOk;
         p.actualPartOk = okRaw;
         if(window.DTMS && window.DTMS.enabled()){
-            try{await window.DTMS.updateProductionLog(productionId, p);}catch(e){console.error(e);alert('Gagal memperbarui produksi di database.');}
+            try{await window.DTMS.updateProductionLog(productionId, p);}catch(e){console.error(e);p.actualPartOk=prevOk;alert('Gagal memperbarui produksi di database: '+(e?.message||e));return;}
         }
         this.closeModal('edit-production-modal');
         alert(`Data produksi ${productionId} berhasil diperbarui!`);
@@ -3244,10 +3240,10 @@ getToolingListView() {
         const idx = this.data.productionLogs.findIndex(x => x.id === productionId);
         if (idx === -1) return;
         if (!confirm(`Yakin ingin menghapus data produksi ${productionId}?`)) return;
-        this.data.productionLogs.splice(idx, 1);
         if(window.DTMS && window.DTMS.enabled()){
-            try{await window.DTMS.deleteProductionLog(productionId);}catch(e){console.error(e);alert('Gagal menghapus produksi di database.');}
+            try{await window.DTMS.deleteProductionLog(productionId);}catch(e){console.error(e);alert('Gagal menghapus produksi di database: '+(e?.message||e));return;}
         }
+        this.data.productionLogs.splice(idx, 1);
         alert(`Data produksi ${productionId} berhasil dihapus.`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
@@ -3458,12 +3454,12 @@ getToolingListView() {
         if (qtyOk === undefined || qtyOk === null || qtyOk < 0) { alert('Harap isi QTY OK dengan benar.'); return; }
         const exists = (this.data.deliveryLogs || []).find(d => d.toolId === toolId && d.month === month);
         if (exists) { alert(`Bulan ${month} sudah ada data pengiriman. Silakan edit data yang sudah ada.`); return; }
-        const id = 'DL-' + String((this.data.deliveryLogs.length + 1)).padStart(3, '0');
+        const id = 'DL-' + Date.now();
         const newLog={ id, toolId, month, inputDate, qtyDelivered: qty, qtyOk: qtyOk || 0 };
-        this.data.deliveryLogs.push(newLog);
         if(window.DTMS && window.DTMS.enabled()){
-            try{await window.DTMS.insertDeliveryLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan pengiriman ke database.');}
+            try{await window.DTMS.insertDeliveryLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan pengiriman ke database: '+(e?.message||e));return;}
         }
+        this.data.deliveryLogs.push(newLog);
         this.closeModal('add-delivery-modal');
         alert(`Data pengiriman ${id} berhasil ditambahkan!`);
         document.getElementById('app-layout')?.remove(); this.router();
@@ -3495,9 +3491,10 @@ getToolingListView() {
         if (qtyOk === undefined || qtyOk === null || qtyOk < 0) { alert('Harap isi QTY OK dengan benar.'); return; }
         const conflict = (this.data.deliveryLogs || []).find(d => d.toolId === l.toolId && d.month === month && d.id !== deliveryId);
         if (conflict) { alert(`Bulan ${month} sudah ada data pengiriman. Silakan edit data yang sudah ada.`); return; }
+        const prevMonth=l.month, prevInputDate=l.inputDate, prevQty=l.qtyDelivered, prevOk=l.qtyOk;
         l.month = month; l.inputDate = inputDate; l.qtyDelivered = qty; l.qtyOk = qtyOk || 0;
         if(window.DTMS && window.DTMS.enabled()){
-            try{await window.DTMS.updateDeliveryLog(deliveryId, l);}catch(e){console.error(e);alert('Gagal memperbarui pengiriman di database.');}
+            try{await window.DTMS.updateDeliveryLog(deliveryId, l);}catch(e){console.error(e);l.month=prevMonth;l.inputDate=prevInputDate;l.qtyDelivered=prevQty;l.qtyOk=prevOk;alert('Gagal memperbarui pengiriman di database: '+(e?.message||e));return;}
         }
         this.closeModal('edit-delivery-modal'); this.closeModal('delivery-log-modal');
         alert(`Data pengiriman ${deliveryId} berhasil diperbarui!`);
@@ -3507,10 +3504,10 @@ getToolingListView() {
         const idx = this.data.deliveryLogs.findIndex(x => x.id === deliveryId);
         if (idx === -1) return;
         if (!confirm(`Yakin ingin menghapus data pengiriman ${deliveryId}?`)) return;
-        this.data.deliveryLogs.splice(idx, 1);
         if(window.DTMS && window.DTMS.enabled()){
-            try{await window.DTMS.deleteDeliveryLog(deliveryId);}catch(e){console.error(e);alert('Gagal menghapus pengiriman di database.');}
+            try{await window.DTMS.deleteDeliveryLog(deliveryId);}catch(e){console.error(e);alert('Gagal menghapus pengiriman di database: '+(e?.message||e));return;}
         }
+        this.data.deliveryLogs.splice(idx, 1);
         this.closeModal('delivery-log-modal');
         alert(`Data pengiriman ${deliveryId} berhasil dihapus.`);
         document.getElementById('app-layout')?.remove(); this.router();
