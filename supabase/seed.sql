@@ -205,11 +205,11 @@ insert into public."notifications" ("userId", "message", "time", "read", "type")
 insert into public."notifications" ("userId", "message", "time", "read", "type") values (null, 'Tooling T-2025-003 mendekati batas akhir masa pakai', '5 jam lalu', true, 'danger') on conflict do nothing;
 
 -- auditLogs
-insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('Hari ini, 10:30', 2, 'Budi Santoso', 'Mengajukan repair request untuk T-2025-002', 'fa-wrench', '#f59e0b') on conflict do nothing;
-insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('Hari ini, 09:15', 1, 'Admin User', 'Menyetujui movement T-2025-004', 'fa-check-circle', '#10b981') on conflict do nothing;
-insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('Kemarin, 16:45', 3, 'PT Auto Parts', 'Upload evidence repair ev-003.png', 'fa-cloud-upload-alt', '#2563eb') on conflict do nothing;
-insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('Kemarin, 14:20', 1, 'Admin User', 'Menambahkan tooling baru T-2025-005', 'fa-plus-circle', '#8b5cf6') on conflict do nothing;
-insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('03 Nov, 11:00', 2, 'Budi Santoso', 'Mengubah status T-2025-003 menjadi Tidak Aktif', 'fa-edit', '#64748b') on conflict do nothing;
+insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('Hari ini, 10:30', (select "id" from public."users" where "name" = 'Budi Santoso' limit 1), 'Budi Santoso', 'Mengajukan repair request untuk T-2025-002', 'fa-wrench', '#f59e0b') on conflict do nothing;
+insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('Hari ini, 09:15', (select "id" from public."users" where "name" = 'Admin User' limit 1), 'Admin User', 'Menyetujui movement T-2025-004', 'fa-check-circle', '#10b981') on conflict do nothing;
+insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('Kemarin, 16:45', (select "id" from public."users" where "name" = 'PT Auto Parts' limit 1), 'PT Auto Parts', 'Upload evidence repair ev-003.png', 'fa-cloud-upload-alt', '#2563eb') on conflict do nothing;
+insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('Kemarin, 14:20', (select "id" from public."users" where "name" = 'Admin User' limit 1), 'Admin User', 'Menambahkan tooling baru T-2025-005', 'fa-plus-circle', '#8b5cf6') on conflict do nothing;
+insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('03 Nov, 11:00', (select "id" from public."users" where "name" = 'Budi Santoso' limit 1), 'Budi Santoso', 'Mengubah status T-2025-003 menjadi Tidak Aktif', 'fa-edit', '#64748b') on conflict do nothing;
 
 -- dieTypes
 insert into public."dieTypes" ("id", "name") values (1, 'Stamping Die') on conflict do nothing;

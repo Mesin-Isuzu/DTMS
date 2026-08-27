@@ -146,13 +146,10 @@ out.push('');
 
 // Audit logs
 out.push('-- auditLogs');
-const nameToId = {};
-d.users.forEach(u => nameToId[u.name] = u.id);
 d.auditLogs.forEach(a => {
-  const obj = { ...a, userId: nameToId[a.user] || null, userName: a.user };
-  delete obj.id;
-  delete obj.user;
-  out.push(rowSql('auditLogs', obj, ['time', 'userId', 'userName', 'action', 'icon', 'color']));
+  const userName = esc(a.user);
+  const userIdExpr = `(select "id" from public."users" where "name" = ${userName} limit 1)`;
+  out.push(`insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values (${esc(a.time)}, ${userIdExpr}, ${userName}, ${esc(a.action)}, ${esc(a.icon)}, ${esc(a.color)}) on conflict do nothing;`);
 });
 out.push('');
 
