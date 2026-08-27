@@ -811,7 +811,7 @@ getToolingListView() {
                                 </div>
                                 <div class="info-item">
                                     <span class="info-label">Tool Price</span>
-                                    <span class="info-value">${t.price || '-'}</span>
+                                    <span class="info-value">${this.parseCurrency(t.price) ? this.formatCurrency(this.parseCurrency(t.price)) : (t.price || '-')}</span>
                                 </div>
                                 ${this.currentUser.role.includes('Admin') ? `
                                 <div class="info-item" style="grid-column: 1 / -1;">
@@ -1842,7 +1842,7 @@ getToolingListView() {
             const lifeRatio=(cumShoot/(parseInt(t.maxShoot)||1)*100).toFixed(1);
             return [
                 i+1,t.id,t.name,t.type,t.partNumber,t.partName||'-',t.model,t.supplier,t.pic||'-',t.supplierAddress||'-',
-                t.status,t.condition,t.price||'-',t.owner||'-',t.maker||'-',t.qtyPerTooling||'1',
+                t.status,t.condition,this.parseCurrency(t.price)?this.formatCurrency(this.parseCurrency(t.price)):(t.price||'-'),t.owner||'-',t.maker||'-',t.qtyPerTooling||'1',
                 t.tonnage||'-',t.material||'-',t.weight||'-',t.dimensions||'-',
                 parseInt(t.maxShoot)||0,cumShoot,lifeRatio+'%',
                 totalKirim,totalQtyOk,rejectRatio.toFixed(1)+'%',
@@ -1905,6 +1905,8 @@ getToolingListView() {
             const periode=String(r[col('Periode Depresiasi')]||'').trim();
             let depreciationType='', depreciationValue='';
             if(periode){const sp=periode.indexOf(' ');if(sp>0){depreciationType=periode.slice(0,sp);depreciationValue=periode.slice(sp+1);}else{depreciationType=periode;}}
+            const rawPrice=String(r[col('Harga')]||'').trim();
+            const price=this.parseCurrency(rawPrice)?this.formatCurrency(this.parseCurrency(rawPrice)):rawPrice;
             const obj={
                 id,
                 name,
@@ -1917,7 +1919,7 @@ getToolingListView() {
                 supplierAddress:String(r[col('Alamat Supplier')]||'').trim(),
                 status:String(r[col('Status')]||'Aktif').trim(),
                 condition:String(r[col('Kondisi')]||'Baik').trim(),
-                price:String(r[col('Harga')]||'').trim(),
+                price,
                 owner:String(r[col('Kepemilikan')]||'').trim(),
                 maker:String(r[col('Maker')]||'').trim(),
                 qtyPerTooling:String(r[col('QTY per Shoot')]||'1').trim(),
@@ -1979,6 +1981,7 @@ getToolingListView() {
         document.body.appendChild(modal); document.body.style.overflow='hidden';
         this.initNumberFormat('at-maxShoot');
         this.initNumberFormat('at-qtyPerTooling');
+        this.initCurrencyFormat('at-price');
         if(!this.currentUser.role.includes('Supplier')) this.initNumberFormat('at-qtyDepreciation');
     }
     async submitAddTooling() {
@@ -1989,7 +1992,7 @@ getToolingListView() {
         if(!mapCheck.valid){alert(mapCheck.msg);return;}
         const newId=`T-${new Date().getFullYear()}-${String(this.data.toolings.length+1).padStart(3,'0')}`;
         const supplierId = this._supplierIdByName(v('supplier'));
-        const newTool={id:newId,name:v('name'),type:v('type')||'-',partNumber:v('pn'),partName:v('partName')||'-',model:v('model')||'-',supplier:v('supplier'),supplierId:supplierId,supplierAddress:v('supplierAddress')||'-',status:v('status')||'Aktif',condition:v('cond')||'Baik',owner:document.getElementById('at-owner')?.value||'Milik MII',lifetime:'0 / 1,000,000',maxShoot:this.parseFormattedNumber(v('maxShoot'))||0,lastMaintenance:'-',maker:v('maker')||'-',weight:v('weight')||'-',tonnage:v('tonnage')||'-',dimensions:v('dimensions')||'-',material:v('material')||'-',toolImage:'',toolImage2:'',partImage:'',depreciationType:'Tahun',depreciationValue:v('depreciationValue')||'5',qtyDepreciation:(this.parseFormattedNumber(v('qtyDepreciation'))?this.formatNumber(this.parseFormattedNumber(v('qtyDepreciation'))):'-'),paNumber:v('paNumber')||'-',paDocumentName:null,paDocumentPath:null,drawingDiesName:null,drawingDiesPath:null,price:v('price')||'-',notes:'-',pic:v('pic')||'-',picEmail:v('picEmail')||'-',picPhone:v('picPhone')||'-',qtyPerTooling:(this.parseFormattedNumber(v('qtyPerTooling'))?this.formatNumber(this.parseFormattedNumber(v('qtyPerTooling'))):'1'),mapUrl:v('mapUrl')||''};
+        const newTool={id:newId,name:v('name'),type:v('type')||'-',partNumber:v('pn'),partName:v('partName')||'-',model:v('model')||'-',supplier:v('supplier'),supplierId:supplierId,supplierAddress:v('supplierAddress')||'-',status:v('status')||'Aktif',condition:v('cond')||'Baik',owner:document.getElementById('at-owner')?.value||'Milik MII',lifetime:'0 / 1,000,000',maxShoot:this.parseFormattedNumber(v('maxShoot'))||0,lastMaintenance:'-',maker:v('maker')||'-',weight:v('weight')||'-',tonnage:v('tonnage')||'-',dimensions:v('dimensions')||'-',material:v('material')||'-',toolImage:'',toolImage2:'',partImage:'',depreciationType:'Tahun',depreciationValue:v('depreciationValue')||'5',qtyDepreciation:(this.parseFormattedNumber(v('qtyDepreciation'))?this.formatNumber(this.parseFormattedNumber(v('qtyDepreciation'))):'-'),paNumber:v('paNumber')||'-',paDocumentName:null,paDocumentPath:null,drawingDiesName:null,drawingDiesPath:null,price:this.parseCurrency(v('price'))?this.formatCurrency(this.parseCurrency(v('price'))):'-',notes:'-',pic:v('pic')||'-',picEmail:v('picEmail')||'-',picPhone:v('picPhone')||'-',qtyPerTooling:(this.parseFormattedNumber(v('qtyPerTooling'))?this.formatNumber(this.parseFormattedNumber(v('qtyPerTooling'))):'1'),mapUrl:v('mapUrl')||''};
         this.data.toolings.push(newTool);
         if(window.DTMS && window.DTMS.enabled()){
             try{await window.DTMS.insertTooling(newTool);}catch(e){console.error(e);alert('Gagal menyimpan tooling ke database.');}
@@ -2005,16 +2008,18 @@ getToolingListView() {
         modal.id='edit-tooling-modal'; modal.className='modal-overlay'; modal.style.cssText='display:flex;opacity:1;visibility:visible;';
         const fg=(id,lbl,val)=>`<div class="form-group"><label class="form-label">${lbl}</label><input id="et-${id}" class="form-control" value="${val||''}"></div>`;
         const fgNum=(id,lbl,val)=>`<div class="form-group"><label class="form-label">${lbl}</label><input id="et-${id}" class="form-control" type="text" value="${val?app.formatNumber(val):''}"></div>`;
+        const fgCur=(id,lbl,val)=>`<div class="form-group"><label class="form-label">${lbl}</label><input id="et-${id}" class="form-control" type="text" value="${app.parseCurrency(val)?app.formatCurrency(app.parseCurrency(val)):''}"></div>`;
         const statOpts=['Aktif','Dalam Perbaikan','Tidak Aktif'].map(s=>`<option ${s===t.status?'selected':''}>${s}</option>`).join('');
         const condOpts=['Baik','Perlu Perbaikan','NG'].map(c=>`<option ${c===t.condition?'selected':''}>${c}</option>`).join('');
         const typeMaster=(this.data.dieTypes||[]).map(x=>x.name);
         const modelMaster=(this.data.productModels||[]).map(x=>x.name);
         const typeOpts=[...new Set([...typeMaster,...this.data.toolings.map(t=>t.type)])].map(o=>`<option ${o===t.type?'selected':''}>${o}</option>`).join('');
         const modelOpts=[...new Set([...modelMaster,...this.data.toolings.map(t=>t.model).filter(m=>m&&m!=='-')])].map(o=>`<option ${o===t.model?'selected':''}>${o}</option>`).join('');
-        modal.innerHTML=`<div class="modal-content" style="max-width:640px;max-height:90vh"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-edit" style="color:var(--accent-color);margin-right:0.5rem"></i>Ubah Tooling: ${toolId}</h3><button class="modal-close" onclick="app.closeModal('edit-tooling-modal')">&times;</button></div><div class="modal-body" style="overflow-y:auto"><div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">${fg('name','Nama',t.name)}<div class="form-group"><label class="form-label">Tipe</label><select id="et-type" class="form-control">${typeOpts}</select></div><div class="form-group"><label class="form-label">Status</label><select id="et-status" class="form-control">${statOpts}</select></div><div class="form-group"><label class="form-label">Kondisi</label><select id="et-cond" class="form-control">${condOpts}</select></div><div class="form-group"><label class="form-label">Model</label><select id="et-model" class="form-control">${modelOpts}</select></div>${fg('supplier','Supplier',t.supplier)}${fg('supplierAddress','Alamat Supplier',t.supplierAddress)}${fg('mapUrl','Link Google Maps',t.mapUrl)}${fg('maker','Maker',t.maker)}${fg('weight','Berat',t.weight)}${fg('tonnage','Tonase',t.tonnage)}${fg('material','Material',t.material)}${fg('price','Harga',t.price)}${fg('pic','PIC',t.pic)}${fg('picEmail','Email PIC',t.picEmail)}${fg('picPhone','Telepon PIC',t.picPhone)}${fgNum('maxShoot','Maximum Shoot',t.maxShoot)}${fgNum('qtyPerTooling','Qty Part per Tooling',parseInt((t.qtyPerTooling||'').replace(/,/g,'')))}${!this.currentUser.role.includes('Supplier') ? fgNum('qtyDepreciation','QTY Depresiasi (pcs)',parseInt((t.qtyDepreciation||'').replace(/,/g,'')))+fg('depreciationValue','Periode Depresiasi (tahun)',t.depreciationValue||'') : ''}</div></div><div class="modal-footer">${this.currentUser.role.includes('Admin') ? `<button type="button" class="btn btn-secondary" onclick="app.closeModal('edit-tooling-modal');app.openDrawingDiesModal('${toolId}')"><i class="fas fa-upload"></i> Upload Drawing</button>` : ''}<button class="btn btn-secondary" onclick="app.closeModal('edit-tooling-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitEditTooling('${toolId}')"><i class="fas fa-save"></i> Simpan</button></div></div>`;
+        modal.innerHTML=`<div class="modal-content" style="max-width:640px;max-height:90vh"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-edit" style="color:var(--accent-color);margin-right:0.5rem"></i>Ubah Tooling: ${toolId}</h3><button class="modal-close" onclick="app.closeModal('edit-tooling-modal')">&times;</button></div><div class="modal-body" style="overflow-y:auto"><div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">${fg('name','Nama',t.name)}<div class="form-group"><label class="form-label">Tipe</label><select id="et-type" class="form-control">${typeOpts}</select></div><div class="form-group"><label class="form-label">Status</label><select id="et-status" class="form-control">${statOpts}</select></div><div class="form-group"><label class="form-label">Kondisi</label><select id="et-cond" class="form-control">${condOpts}</select></div><div class="form-group"><label class="form-label">Model</label><select id="et-model" class="form-control">${modelOpts}</select></div>${fg('supplier','Supplier',t.supplier)}${fg('supplierAddress','Alamat Supplier',t.supplierAddress)}${fg('mapUrl','Link Google Maps',t.mapUrl)}${fg('maker','Maker',t.maker)}${fg('weight','Berat',t.weight)}${fg('tonnage','Tonase',t.tonnage)}${fg('material','Material',t.material)}${fgCur('price','Harga',t.price)}${fg('pic','PIC',t.pic)}${fg('picEmail','Email PIC',t.picEmail)}${fg('picPhone','Telepon PIC',t.picPhone)}${fgNum('maxShoot','Maximum Shoot',t.maxShoot)}${fgNum('qtyPerTooling','Qty Part per Tooling',parseInt((t.qtyPerTooling||'').replace(/,/g,'')))}${!this.currentUser.role.includes('Supplier') ? fgNum('qtyDepreciation','QTY Depresiasi (pcs)',parseInt((t.qtyDepreciation||'').replace(/,/g,'')))+fg('depreciationValue','Periode Depresiasi (tahun)',t.depreciationValue||'') : ''}</div></div><div class="modal-footer">${this.currentUser.role.includes('Admin') ? `<button type="button" class="btn btn-secondary" onclick="app.closeModal('edit-tooling-modal');app.openDrawingDiesModal('${toolId}')"><i class="fas fa-upload"></i> Upload Drawing</button>` : ''}<button class="btn btn-secondary" onclick="app.closeModal('edit-tooling-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitEditTooling('${toolId}')"><i class="fas fa-save"></i> Simpan</button></div></div>`;
         document.body.appendChild(modal); document.body.style.overflow='hidden';
         this.initNumberFormat('et-maxShoot');
         this.initNumberFormat('et-qtyPerTooling');
+        this.initCurrencyFormat('et-price');
         if(!this.currentUser.role.includes('Supplier')) this.initNumberFormat('et-qtyDepreciation');
     }
     async submitEditTooling(toolId) {
@@ -2023,7 +2028,7 @@ getToolingListView() {
         const v=id=>document.getElementById('et-'+id)?.value?.trim();
         const mapCheck=this._validateMapUrl(v('mapUrl'));
         if(!mapCheck.valid){alert(mapCheck.msg);return;}
-        t.name=v('name')||t.name; t.type=v('type')||t.type; t.status=v('status')||t.status; t.condition=v('cond')||t.condition; t.model=v('model')||t.model; t.supplier=v('supplier')||t.supplier; t.supplierId=this._supplierIdByName(t.supplier); t.supplierAddress=v('supplierAddress')||t.supplierAddress; t.mapUrl=v('mapUrl')||t.mapUrl; t.maker=v('maker')||t.maker; t.weight=v('weight')||t.weight; t.tonnage=v('tonnage')||t.tonnage; t.material=v('material')||t.material; t.price=v('price')||t.price; t.pic=v('pic')||t.pic; t.picEmail=v('picEmail')||t.picEmail; t.picPhone=v('picPhone')||t.picPhone;         t.maxShoot=this.parseFormattedNumber(v('maxShoot'))||t.maxShoot; t.qtyPerTooling=this.parseFormattedNumber(v('qtyPerTooling'))?this.formatNumber(this.parseFormattedNumber(v('qtyPerTooling'))):t.qtyPerTooling; if(!this.currentUser.role.includes('Supplier')){t.qtyDepreciation=this.parseFormattedNumber(v('qtyDepreciation'))?this.formatNumber(this.parseFormattedNumber(v('qtyDepreciation'))):t.qtyDepreciation; t.depreciationValue=v('depreciationValue')||t.depreciationValue;}
+        t.name=v('name')||t.name; t.type=v('type')||t.type; t.status=v('status')||t.status; t.condition=v('cond')||t.condition; t.model=v('model')||t.model; t.supplier=v('supplier')||t.supplier; t.supplierId=this._supplierIdByName(t.supplier); t.supplierAddress=v('supplierAddress')||t.supplierAddress; t.mapUrl=v('mapUrl')||t.mapUrl; t.maker=v('maker')||t.maker; t.weight=v('weight')||t.weight; t.tonnage=v('tonnage')||t.tonnage; t.material=v('material')||t.material; {const pv=v('price'); t.price=pv?this.formatCurrency(this.parseCurrency(pv)):t.price;} t.pic=v('pic')||t.pic; t.picEmail=v('picEmail')||t.picEmail; t.picPhone=v('picPhone')||t.picPhone;         t.maxShoot=this.parseFormattedNumber(v('maxShoot'))||t.maxShoot; t.qtyPerTooling=this.parseFormattedNumber(v('qtyPerTooling'))?this.formatNumber(this.parseFormattedNumber(v('qtyPerTooling'))):t.qtyPerTooling; if(!this.currentUser.role.includes('Supplier')){t.qtyDepreciation=this.parseFormattedNumber(v('qtyDepreciation'))?this.formatNumber(this.parseFormattedNumber(v('qtyDepreciation'))):t.qtyDepreciation; t.depreciationValue=v('depreciationValue')||t.depreciationValue;}
         if(window.DTMS && window.DTMS.enabled()){
             try{await window.DTMS.updateTooling(toolId, t);}catch(e){console.error(e);alert('Gagal memperbarui tooling di database.');}
         }
@@ -3391,6 +3396,12 @@ getToolingListView() {
     parseFormattedNumber(str) {
         return parseInt(str.replace(/\./g, '')) || 0;
     }
+    formatCurrency(n) {
+        return 'Rp ' + this.formatNumber(n);
+    }
+    parseCurrency(str) {
+        return parseInt(String(str || '').replace(/[^0-9]/g, '')) || 0;
+    }
     initNumberFormat(inputId) {
         const el = document.getElementById(inputId);
         if (!el) return;
@@ -3399,6 +3410,18 @@ getToolingListView() {
             const oldLen = this.value.length;
             const raw = this.value.replace(/[^0-9]/g, '');
             this.value = raw ? app.formatNumber(parseInt(raw)) : '';
+            const newLen = this.value.length;
+            this.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen));
+        });
+    }
+    initCurrencyFormat(inputId) {
+        const el = document.getElementById(inputId);
+        if (!el) return;
+        el.addEventListener('input', function() {
+            const pos = this.selectionStart;
+            const oldLen = this.value.length;
+            const raw = this.value.replace(/[^0-9]/g, '');
+            this.value = raw ? app.formatCurrency(parseInt(raw)) : '';
             const newLen = this.value.length;
             this.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen));
         });
