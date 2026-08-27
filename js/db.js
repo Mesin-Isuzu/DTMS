@@ -290,6 +290,10 @@ const DTMS = (function () {
     return _callAdminFunction('update-password', email, { password: newPassword });
   }
 
+  async function updateAuthMetadata(email, metadata) {
+    return _callAdminFunction('update-metadata', email, { metadata });
+  }
+
   // ----------------------------
   // Storage
   // ----------------------------
@@ -383,6 +387,7 @@ const DTMS = (function () {
     generatePassword,
     deleteAuthUser,
     updateAuthPassword,
+    updateAuthMetadata,
     uploadFile,
     removeFile,
     getPublicUrl,

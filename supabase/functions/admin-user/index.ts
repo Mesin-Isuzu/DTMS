@@ -36,7 +36,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { action, email, password } = await req.json();
+    const { action, email, password, metadata } = await req.json();
 
     if (!action) {
       return new Response(JSON.stringify({ error: "action is required" }), {
@@ -44,7 +44,7 @@ serve(async (req: Request) => {
       });
     }
 
-    if (!["delete", "update-password", "cleanup-orphaned"].includes(action)) {
+    if (!["delete", "update-password", "update-metadata", "cleanup-orphaned"].includes(action)) {
       return new Response(JSON.stringify({ error: `unknown action: ${action}` }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -58,6 +58,12 @@ serve(async (req: Request) => {
 
     if (action === "update-password" && !password) {
       return new Response(JSON.stringify({ error: "password is required for update-password action" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update-metadata" && (!metadata || typeof metadata !== "object")) {
+      return new Response(JSON.stringify({ error: "metadata object is required for update-metadata action" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -152,6 +158,20 @@ serve(async (req: Request) => {
       });
       if (updateError) {
         return new Response(JSON.stringify({ error: "failed to update password", detail: updateError.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ updated: true, email }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update-metadata") {
+      const { error: updateError } = await adminClient.auth.admin.updateUserById(targetUser.id, {
+        user_metadata: metadata,
+      });
+      if (updateError) {
+        return new Response(JSON.stringify({ error: "failed to update user metadata", detail: updateError.message }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }

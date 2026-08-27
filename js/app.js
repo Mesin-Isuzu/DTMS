@@ -198,14 +198,23 @@ class App {
     }
 
     _supplierIdByName(name) {
+        const key = String(name || '').trim().toLowerCase();
+        if (!key) return null;
         const map = {
             'PT Auto Parts': 'SUP001',
             'PT Plasticindo': 'SUP002',
             'PT Metalindo': 'SUP003'
         };
-        if (map[name]) return map[name];
-        const u = this.data.users.find(x => x.name === name || x.company === name);
+        for (const [k, v] of Object.entries(map)) {
+            if (k.toLowerCase() === key) return v;
+        }
+        const u = this.data.users.find(x => x.role === 'Pengguna Supplier' && ((x.name || '').trim().toLowerCase() === key || (x.company || '').trim().toLowerCase() === key));
         return u?.supplierId || null;
+    }
+
+    _isSupplierTooling(t) {
+        if (this.currentUser.supplierId && t.supplierId) return t.supplierId === this.currentUser.supplierId;
+        return t.supplier === this.currentUser.name;
     }
 
     _isGoogleMapsUrl(url) {
@@ -358,7 +367,7 @@ class App {
         
         let toolings = this.data.toolings;
         if (this.currentUser.role === 'Pengguna Supplier') {
-            toolings = toolings.filter(t => t.supplier === this.currentUser.name);
+            toolings = toolings.filter(t => this._isSupplierTooling(t));
         }
 
         const total = toolings.length;
@@ -481,7 +490,7 @@ getToolingListView() {
         let toolings = this.data.toolings;
         
         if (this.currentUser.role === 'Pengguna Supplier') {
-            toolings = toolings.filter(t => t.supplier === this.currentUser.name);
+            toolings = toolings.filter(t => this._isSupplierTooling(t));
         }
 
         let tableRows = toolings.map((t, i) => `
@@ -857,14 +866,14 @@ getToolingListView() {
                 <div class="card-header">
                     <h3 class="card-title"><i class="fas fa-history" style="color: var(--accent-color); margin-right: 0.5rem;"></i> Riwayat Pemeliharaan</h3>
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        ${this.currentUser.role === 'Pengguna Supplier' && t.supplier === this.currentUser.name ? `<button class="btn btn-primary btn-sm" onclick="app.openAddRepairModal('${t.id}', '${t.name}')"><i class="fas fa-plus"></i> Tambah Perbaikan</button>` : ''}
+                        ${this.currentUser.role === 'Pengguna Supplier' && this._isSupplierTooling(t) ? `<button class="btn btn-primary btn-sm" onclick="app.openAddRepairModal('${t.id}', '${t.name}')"><i class="fas fa-plus"></i> Tambah Perbaikan</button>` : ''}
                         <span class="badge badge-info" style="font-size: 0.8rem; padding: 0.35rem 0.75rem;">${this.data.maintenanceLogs.filter(l => l.toolId === t.id).length} record</span>
                     </div>
                 </div>
                 <div class="card-body" style="padding: 0;">
                     ${(() => {
                         const logs = this.data.maintenanceLogs.filter(l => l.toolId === t.id);
-                        const isSupplierOwner = this.currentUser.role === 'Pengguna Supplier' && t.supplier === this.currentUser.name;
+                        const isSupplierOwner = this.currentUser.role === 'Pengguna Supplier' && this._isSupplierTooling(t);
                         if (logs.length === 0) {
                             return `
                                 <div style="text-align: center; padding: 3rem 2rem; color: var(--text-secondary);">
@@ -1085,10 +1094,10 @@ getToolingListView() {
 
         if (this.currentUser.role === 'Pengguna Supplier') {
             const supplierToolingIds = toolings
-                .filter(t => t.supplier === this.currentUser.name)
+                .filter(t => this._isSupplierTooling(t))
                 .map(t => t.id);
             logs = logs.filter(l => supplierToolingIds.includes(l.toolId));
-            toolings = toolings.filter(t => t.supplier === this.currentUser.name);
+            toolings = toolings.filter(t => this._isSupplierTooling(t));
         }
 
         let rows = logs.map(l => `
@@ -1149,9 +1158,9 @@ getToolingListView() {
                 }
             }
         });
-        if (this.currentUser.role === 'Pengguna Supplier') tasks = tasks.filter(t => t.supplier === this.currentUser.name);
+        if (this.currentUser.role === 'Pengguna Supplier') tasks = tasks.filter(t => this.currentUser.supplierId && t.supplierId ? t.supplierId === this.currentUser.supplierId : t.supplier === this.currentUser.name);
         let toolings = this.data.toolings;
-        if (this.currentUser.role === 'Pengguna Supplier') toolings = toolings.filter(t => t.supplier === this.currentUser.name);
+        if (this.currentUser.role === 'Pengguna Supplier') toolings = toolings.filter(t => this._isSupplierTooling(t));
         const total = toolings.length;
         const sDikerjakan = tasks.filter(t=>t.status==='Sedang Dikerjakan').length;
         const sMenunggu = tasks.filter(t=>t.status==='Menunggu Konfirmasi').length;
@@ -1826,7 +1835,7 @@ getToolingListView() {
     exportToolingExcel() {
         const h=['No. Urut','ID Tooling','Nama Tooling','Tipe','Part Number','Nama Part','Model','Supplier','Nama PIC','Alamat Supplier','Status','Kondisi','Harga','Kepemilikan','Maker','QTY per Shoot','Tonnase','Material Tooling','Berat Tooling','Dimensi Utama (PxLxT)','Maximum Shoot','Kumulatif Shoot','Life Tool Ratio','Kumulatif Total Kirim','Kumulatif QTY OK','Total Reject Ratio','Periode Depresiasi','QTY Depresiasi','Sisa QTY Depresiasi'];
         let toolings=this.data.toolings;
-        if(this.currentUser.role==='Pengguna Supplier'){toolings=toolings.filter(t=>t.supplier===this.currentUser.name);}
+        if(this.currentUser.role==='Pengguna Supplier'){toolings=toolings.filter(t=>this._isSupplierTooling(t));}
         const rows=toolings.map((t,i)=>{
             const shootLogs=(this.data.shootLogs||[]).filter(sl=>sl.toolId===t.id);
             const cumShoot=shootLogs.reduce((sum,sl)=>sum+sl.shootCount,0);
@@ -1992,6 +2001,7 @@ getToolingListView() {
         if(!mapCheck.valid){alert(mapCheck.msg);return;}
         const newId=`T-${new Date().getFullYear()}-${String(this.data.toolings.length+1).padStart(3,'0')}`;
         const supplierId = this._supplierIdByName(v('supplier'));
+        if(!supplierId && !confirm(`Supplier "${v('supplier')}" tidak terdaftar sebagai user supplier (Supplier ID tidak ditemukan). User supplier tersebut tidak akan melihat dies ini.\n\nLanjut simpan?`)) return;
         const newTool={id:newId,name:v('name'),type:v('type')||'-',partNumber:v('pn'),partName:v('partName')||'-',model:v('model')||'-',supplier:v('supplier'),supplierId:supplierId,supplierAddress:v('supplierAddress')||'-',status:v('status')||'Aktif',condition:v('cond')||'Baik',owner:document.getElementById('at-owner')?.value||'Milik MII',lifetime:'0 / 1,000,000',maxShoot:this.parseFormattedNumber(v('maxShoot'))||0,lastMaintenance:'-',maker:v('maker')||'-',weight:v('weight')||'-',tonnage:v('tonnage')||'-',dimensions:v('dimensions')||'-',material:v('material')||'-',toolImage:'',toolImage2:'',partImage:'',depreciationType:'Tahun',depreciationValue:v('depreciationValue')||'5',qtyDepreciation:(this.parseFormattedNumber(v('qtyDepreciation'))?this.formatNumber(this.parseFormattedNumber(v('qtyDepreciation'))):'-'),paNumber:v('paNumber')||'-',paDocumentName:null,paDocumentPath:null,drawingDiesName:null,drawingDiesPath:null,price:this.parseCurrency(v('price'))?this.formatCurrency(this.parseCurrency(v('price'))):'-',notes:'-',pic:v('pic')||'-',picEmail:v('picEmail')||'-',picPhone:v('picPhone')||'-',qtyPerTooling:(this.parseFormattedNumber(v('qtyPerTooling'))?this.formatNumber(this.parseFormattedNumber(v('qtyPerTooling'))):'1'),mapUrl:v('mapUrl')||''};
         this.data.toolings.push(newTool);
         if(window.DTMS && window.DTMS.enabled()){
@@ -2028,7 +2038,10 @@ getToolingListView() {
         const v=id=>document.getElementById('et-'+id)?.value?.trim();
         const mapCheck=this._validateMapUrl(v('mapUrl'));
         if(!mapCheck.valid){alert(mapCheck.msg);return;}
-        t.name=v('name')||t.name; t.type=v('type')||t.type; t.status=v('status')||t.status; t.condition=v('cond')||t.condition; t.model=v('model')||t.model; t.supplier=v('supplier')||t.supplier; t.supplierId=this._supplierIdByName(t.supplier); t.supplierAddress=v('supplierAddress')||t.supplierAddress; t.mapUrl=v('mapUrl')||t.mapUrl; t.maker=v('maker')||t.maker; t.weight=v('weight')||t.weight; t.tonnage=v('tonnage')||t.tonnage; t.material=v('material')||t.material; {const pv=v('price'); t.price=pv?this.formatCurrency(this.parseCurrency(pv)):t.price;} t.pic=v('pic')||t.pic; t.picEmail=v('picEmail')||t.picEmail; t.picPhone=v('picPhone')||t.picPhone;         t.maxShoot=this.parseFormattedNumber(v('maxShoot'))||t.maxShoot; t.qtyPerTooling=this.parseFormattedNumber(v('qtyPerTooling'))?this.formatNumber(this.parseFormattedNumber(v('qtyPerTooling'))):t.qtyPerTooling; if(!this.currentUser.role.includes('Supplier')){t.qtyDepreciation=this.parseFormattedNumber(v('qtyDepreciation'))?this.formatNumber(this.parseFormattedNumber(v('qtyDepreciation'))):t.qtyDepreciation; t.depreciationValue=v('depreciationValue')||t.depreciationValue;}
+        const newSupplier=v('supplier')||t.supplier;
+        const newSupplierId=this._supplierIdByName(newSupplier);
+        if(!newSupplierId && !confirm(`Supplier "${newSupplier}" tidak terdaftar sebagai user supplier (Supplier ID tidak ditemukan). User supplier tersebut tidak akan melihat dies ini.\n\nLanjut simpan?`)) return;
+        t.name=v('name')||t.name; t.type=v('type')||t.type; t.status=v('status')||t.status; t.condition=v('cond')||t.condition; t.model=v('model')||t.model; t.supplier=newSupplier; t.supplierId=newSupplierId; t.supplierAddress=v('supplierAddress')||t.supplierAddress; t.mapUrl=v('mapUrl')||t.mapUrl; t.maker=v('maker')||t.maker; t.weight=v('weight')||t.weight; t.tonnage=v('tonnage')||t.tonnage; t.material=v('material')||t.material; {const pv=v('price'); t.price=pv?this.formatCurrency(this.parseCurrency(pv)):t.price;} t.pic=v('pic')||t.pic; t.picEmail=v('picEmail')||t.picEmail; t.picPhone=v('picPhone')||t.picPhone;         t.maxShoot=this.parseFormattedNumber(v('maxShoot'))||t.maxShoot; t.qtyPerTooling=this.parseFormattedNumber(v('qtyPerTooling'))?this.formatNumber(this.parseFormattedNumber(v('qtyPerTooling'))):t.qtyPerTooling; if(!this.currentUser.role.includes('Supplier')){t.qtyDepreciation=this.parseFormattedNumber(v('qtyDepreciation'))?this.formatNumber(this.parseFormattedNumber(v('qtyDepreciation'))):t.qtyDepreciation; t.depreciationValue=v('depreciationValue')||t.depreciationValue;}
         if(window.DTMS && window.DTMS.enabled()){
             try{await window.DTMS.updateTooling(toolId, t);}catch(e){console.error(e);alert('Gagal memperbarui tooling di database.');}
         }
@@ -2614,11 +2627,17 @@ getToolingListView() {
         const username=document.getElementById('au-username')?.value?.trim();
         const name=document.getElementById('au-name')?.value?.trim();
         const role=document.getElementById('au-role')?.value;
-        const supplierId=document.getElementById('au-supplierid')?.value?.trim()||'';
+        let supplierId=document.getElementById('au-supplierid')?.value?.trim()||'';
         const company=document.getElementById('au-company')?.value?.trim()||'';
         const password=document.getElementById('au-password')?.value?.trim();
         if(!username||!name||!company){alert('Username, Nama Lengkap, dan Perusahaan wajib diisi.');return;}
         if(this.data.users.some(x=>x.username===username)){alert(`Username "${username}" sudah digunakan.`);return;}
+        let generatedSupplierId=null;
+        if(role==='Pengguna Supplier' && !supplierId){
+            const maxSup=(this.data.users.map(x=>x.supplierId).filter(Boolean).map(s=>parseInt(String(s).replace(/[^0-9]/g,''))||0).reduce((m,n)=>Math.max(m,n),0));
+            supplierId=`SUP${String(maxSup+1).padStart(3,'0')}`;
+            generatedSupplierId=supplierId;
+        }
         const maxId=this.data.users.reduce((m,x)=>Math.max(m,x.id),0);
         const newUser={id:maxId+1,username,email:`${username}@dtms.mail`,name,role,supplierId:supplierId||undefined,company:company||undefined};
         this.data.users.push(newUser);
@@ -2631,7 +2650,7 @@ getToolingListView() {
             }catch(e){console.error(e);alert('Gagal menyimpan pengguna ke database/auth.');}
         }
         this.closeModal('add-user-modal');
-        alert(`Pengguna ${username} berhasil ditambahkan. Password: ${finalPw}`);
+        alert(`Pengguna ${username} berhasil ditambahkan. Password: ${finalPw}${generatedSupplierId?`\nSupplier ID (otomatis): ${generatedSupplierId}`:''}`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
 
@@ -2658,6 +2677,11 @@ getToolingListView() {
         if(window.DTMS && window.DTMS.enabled()){
             try{
                 await window.DTMS.updateUser(userId, u);
+                const metaResult = await window.DTMS.updateAuthMetadata(u.email, {username:u.username,name,role,company,supplierId:supplierId||null});
+                if(metaResult.error){
+                    console.error('Update metadata error:', metaResult.error);
+                    alert('Data pengguna diperbarui, tetapi gagal sinkronisasi metadata akun: ' + metaResult.error.message + '\nPastikan Edge Function admin-user sudah di-deploy ulang.');
+                }
                 if(newPassword){
                     const result = await window.DTMS.updateAuthPassword(u.email, newPassword);
                     if(result.error){
@@ -2668,7 +2692,7 @@ getToolingListView() {
             }catch(e){console.error(e);alert('Gagal memperbarui pengguna di database.');}
         }
         this.closeModal('edit-user-modal');
-        alert(`Data pengguna ${u.username} berhasil diperbarui.${newPassword ? ' Password baru: ' + newPassword : ''}`);
+        alert(`Data pengguna ${u.username} berhasil diperbarui.${newPassword ? ' Password baru: ' + newPassword : ''}${u.role==='Pengguna Supplier' ? '\nCatatan: user supplier perlu login ulang agar perubahan Supplier ID/akses berlaku.' : ''}`);
         document.getElementById('app-layout')?.remove(); this.router();
     }
 
