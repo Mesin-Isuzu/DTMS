@@ -461,6 +461,14 @@ class App {
         if (this.currentUser.role === 'Pengguna Supplier') {
             toolings = toolings.filter(t => this._isSupplierTooling(t));
         }
+        if (this._toolingSortKey === 'id') {
+            toolings = toolings.slice().sort((a, b) => {
+                const d = this._toolingSortDir === 'desc' ? -1 : 1;
+                const na = parseInt(String(a.id || '').replace(/[^0-9]/g, '')) || 0;
+                const nb = parseInt(String(b.id || '').replace(/[^0-9]/g, '')) || 0;
+                return (na !== nb ? na - nb : String(a.id).localeCompare(String(b.id))) * d;
+            });
+        }
 
         const total = toolings.length;
         const sAktif=toolings.filter(t=>t.status==='Aktif').length;
@@ -559,7 +567,7 @@ class App {
                         <thead>
                             <tr>
                                 <th>No.</th>
-                                <th>ID Tooling</th>
+                                <th id="th-sort-tooling-id" onclick="app.sortDashboardToolings()" style="cursor:pointer;user-select:none">ID Tooling <i class="fas ${this._toolingSortKey==='id'?(this._toolingSortDir==='desc'?'fa-sort-down':'fa-sort-up'):'fa-sort'} sort-icon" style="color:${this._toolingSortKey==='id'?'var(--accent-color)':'var(--text-tertiary)'}"></i></th>
                                 <th>Nama / Tipe</th>
                                 <th>Nomor Part</th>
                                 <th>Nama Part</th>
@@ -1839,6 +1847,37 @@ getToolingListView() {
                 if (td && !td.hasAttribute('colspan')) td.textContent = num++;
             }
         });
+    }
+
+    sortDashboardToolings() {
+        const table=document.getElementById('toolingTable');
+        if(!table) return;
+        const tbody=table.querySelector('tbody');
+        if(!tbody) return;
+        const rows=Array.from(tbody.querySelectorAll('tr'));
+        if(rows.length===0||(rows.length===1&&rows[0].cells.length===1)) return;
+        if(this._toolingSortKey==='id'){this._toolingSortDir=this._toolingSortDir==='asc'?'desc':'asc';}
+        else {this._toolingSortKey='id'; this._toolingSortDir='asc';}
+        const d=this._toolingSortDir==='desc'?-1:1;
+        const getText=r=>{const c=r.cells[1];return c?(c.textContent||'').trim():'';};
+        rows.sort((a,b)=>{
+            const sa=getText(a), sb=getText(b);
+            const na=parseInt(sa.replace(/[^0-9]/g,''))||0;
+            const nb=parseInt(sb.replace(/[^0-9]/g,''))||0;
+            return (na!==nb?na-nb:sa.localeCompare(sb))*d;
+        });
+        rows.forEach(r=>tbody.appendChild(r));
+        this._updateToolingSortIndicator();
+        this.updateRowNumbers('toolingTable');
+    }
+
+    _updateToolingSortIndicator() {
+        const th=document.getElementById('th-sort-tooling-id');
+        const i=th?th.querySelector('.sort-icon'):null;
+        if(!i) return;
+        const active=this._toolingSortKey==='id';
+        i.className='fas '+(active?(this._toolingSortDir==='desc'?'fa-sort-down':'fa-sort-up'):'fa-sort');
+        i.style.color=active?'var(--accent-color)':'var(--text-tertiary)';
     }
 
     // ===== SUPPLIER TASKS FILTER =====
