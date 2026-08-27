@@ -111,6 +111,9 @@ class App {
             case 'supplier-tasks':
                 contentArea.innerHTML = this.getSupplierTasksView();
                 break;
+            case 'suppliers':
+                contentArea.innerHTML = this.getSuppliersView();
+                break;
             case 'maintenance':
                 contentArea.innerHTML = this.getMaintenanceView();
                 break;
@@ -413,7 +416,7 @@ class App {
                     <nav class="sidebar-nav">
                         <a href="#dashboard" class="nav-item"><i class="fas fa-home"></i> Ringkasan Dashboard</a>
                         <a href="#supplier-tasks" class="nav-item"><i class="fas fa-tasks"></i> Tugas Supplier</a>
-                        <a href="javascript:void(0)" class="nav-item" onclick="app.openSuppliersModal()"><i class="fas fa-building"></i> Daftar Supplier</a>
+                        <a href="#suppliers" class="nav-item"><i class="fas fa-building"></i> Daftar Supplier</a>
                         ${!this.currentUser.role.includes('Supplier') ? `<a href="#reports" class="nav-item"><i class="fas fa-chart-bar"></i> Laporan & KPI</a>` : ''}
                         ${this.currentUser.role.includes('Admin') ? `<a href="#admin" class="nav-item"><i class="fas fa-cog"></i> Pengaturan Admin</a>` : ''}
                     </nav>
@@ -2911,20 +2914,19 @@ getToolingListView() {
     }
 
     // ===== MASTER DATA: SUPPLIERS =====
-    openSuppliersModal() {
+    getSuppliersView() {
+        document.getElementById('header-title').innerText = 'Daftar Supplier';
         const isAdmin=this.currentUser.role.includes('Admin');
         const sp=this.data.suppliers||[];
+        const toolSuppliers=new Set((this.data.toolings||[]).map(t=>t.supplierId).filter(Boolean));
+        const usedCount=sp.filter(x=>toolSuppliers.has(x.supplierId)).length;
+        const picCount=sp.filter(x=>x.pic&&x.picEmail&&x.picPhone).length;
         const sRows=sp.map(x=>{
             const editBtn=isAdmin?`<button class="btn btn-sm btn-secondary" onclick="app.openEditSupplierModal(${x.id})" title="Edit" style="padding:0.25rem 0.5rem;margin-right:0.25rem"><i class="fas fa-edit"></i></button>`:`<button class="btn btn-sm btn-secondary" disabled title="Khusus Admin" style="padding:0.25rem 0.5rem;margin-right:0.25rem"><i class="fas fa-edit"></i></button>`;
             const delBtn=isAdmin?`<button class="btn btn-sm btn-danger" onclick="app.submitDeleteSupplier(${x.id})" title="Hapus" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button>`:`<button class="btn btn-sm btn-danger" disabled title="Khusus Admin" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button>`;
             return `<tr><td>${x.supplierId}</td><td class="font-semibold">${x.name}</td><td style="max-width:220px;white-space:normal">${x.address||'-'}</td><td>${x.mapUrl?`<a href="${x.mapUrl}" target="_blank" title="Buka Google Maps"><i class="fas fa-map-marker-alt" style="color:var(--accent-color)"></i> Maps</a>`:'-'}</td><td>${x.pic||'-'}</td><td>${x.picEmail||'-'}</td><td>${x.picPhone||'-'}</td><td>${editBtn}${delBtn}</td></tr>`;
         }).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--text-secondary);padding:1rem">Belum ada supplier.</td></tr>';
-        const existing=document.getElementById('suppliers-modal');
-        if(existing) existing.remove();
-        const modal=document.createElement('div');
-        modal.id='suppliers-modal'; modal.className='modal-overlay'; modal.style.cssText='display:flex;opacity:1;visibility:visible;';
-        modal.innerHTML=`<div class="modal-content" style="max-width:900px;max-height:90vh"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-building" style="color:var(--accent-color);margin-right:0.5rem"></i>Daftar Supplier</h3><div style="display:flex;align-items:center;gap:0.5rem">${isAdmin?`<button class="btn btn-primary" onclick="app.openAddSupplierModal()"><i class="fas fa-plus"></i> Tambah Supplier</button>`:''}<button class="modal-close" onclick="app.closeModal('suppliers-modal')">&times;</button></div></div><div class="modal-body" style="overflow-y:auto"><div class="table-responsive"><table class="table"><thead><tr><th>Supplier ID</th><th>Nama Supplier</th><th>Alamat Supplier</th><th>Link Google Maps</th><th>Nama PIC</th><th>Email PIC</th><th>Telepon PIC</th><th>Aksi</th></tr></thead><tbody>${sRows}</tbody></table></div></div></div>`;
-        document.body.appendChild(modal); document.body.style.overflow='hidden';
+        return `<div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem"><div class="kpi-card"><div class="kpi-icon dark"><i class="fas fa-building"></i></div><div class="kpi-content"><span class="kpi-title">Total Supplier</span><div class="kpi-value">${sp.length}</div></div></div><div class="kpi-card"><div class="kpi-icon blue"><i class="fas fa-tools"></i></div><div class="kpi-content"><span class="kpi-title">Supplier Dipakai di Tooling</span><div class="kpi-value">${usedCount}</div></div></div><div class="kpi-card"><div class="kpi-icon green"><i class="fas fa-user-check"></i></div><div class="kpi-content"><span class="kpi-title">PIC Terlengkapi</span><div class="kpi-value">${picCount}</div></div></div></div><div class="card"><div class="card-header"><h3 class="card-title">Daftar Supplier</h3><div class="header-actions">${isAdmin?`<button class="btn btn-primary" onclick="app.openAddSupplierModal()"><i class="fas fa-plus"></i> Tambah Supplier</button>`:''}</div></div><div class="table-responsive"><table class="table" id="suppliersTable"><thead><tr><th>Supplier ID</th><th>Nama Supplier</th><th>Alamat Supplier</th><th>Link Google Maps</th><th>Nama PIC</th><th>Email PIC</th><th>Telepon PIC</th><th>Aksi</th></tr></thead><tbody>${sRows}</tbody></table></div></div>`;
     }
 
     openAddSupplierModal() {
@@ -2952,7 +2954,7 @@ getToolingListView() {
         list.push(newSupplier);
         this.closeModal('add-supplier-modal');
         alert(`Supplier ${newSupplier.name} (${newSupplier.supplierId}) berhasil ditambahkan.`);
-        this.closeModal('suppliers-modal'); this.openSuppliersModal();
+        document.getElementById('app-layout')?.remove(); this.router();
     }
 
     openEditSupplierModal(id) {
@@ -2978,7 +2980,7 @@ getToolingListView() {
         }
         this.closeModal('edit-supplier-modal');
         alert(`Supplier ${s.name} berhasil diperbarui.`);
-        this.closeModal('suppliers-modal'); this.openSuppliersModal();
+        document.getElementById('app-layout')?.remove(); this.router();
     }
 
     async submitDeleteSupplier(id) {
@@ -2995,7 +2997,7 @@ getToolingListView() {
             this.data.suppliers.splice(idx,1);
         }
         alert(`Supplier ${item.name} berhasil dihapus.`);
-        this.closeModal('suppliers-modal'); this.openSuppliersModal();
+        document.getElementById('app-layout')?.remove(); this.router();
     }
 
     // ===== AGGREGATE PERIODS =====
