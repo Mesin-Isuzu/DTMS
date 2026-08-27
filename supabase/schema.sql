@@ -138,6 +138,34 @@ create policy "productModels_admin" on public."productModels"
   with check (public.is_admin());
 
 -- ------------------------------------------------------------
+-- 4A. Master data: suppliers
+-- ------------------------------------------------------------
+create table if not exists public."suppliers" (
+  "id" serial primary key,
+  "supplierId" text unique not null,
+  "name" text not null,
+  "address" text,
+  "mapUrl" text,
+  "pic" text,
+  "picEmail" text,
+  "picPhone" text,
+  "createdAt" timestamptz default now()
+);
+
+comment on table public."suppliers" is 'Master list of suppliers';
+
+alter table public."suppliers" enable row level security;
+
+drop policy if exists "suppliers_select" on public."suppliers";
+create policy "suppliers_select" on public."suppliers"
+  for select to authenticated using (true);
+
+drop policy if exists "suppliers_admin" on public."suppliers";
+create policy "suppliers_admin" on public."suppliers"
+  for all to authenticated using (public.is_admin())
+  with check (public.is_admin());
+
+-- ------------------------------------------------------------
 -- 5. Toolings
 -- ------------------------------------------------------------
 create table if not exists public."toolings" (

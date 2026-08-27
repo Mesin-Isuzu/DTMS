@@ -11,5 +11,6 @@ TRUNCATE TABLE
   public."toolings",
   public."users",
   public."dieTypes",
-  public."productModels"
+  public."productModels",
+  public."suppliers"
 CASCADE;

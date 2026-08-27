@@ -27,6 +27,12 @@ const mockData = {
         { id: 4, name: 'Hatchback-Z' }
     ],
 
+    suppliers: [
+        { id: 1, supplierId: 'SUP001', name: 'PT Auto Parts', address: 'Jl. Industri Raya No. 123, Kawasan Industri Cikarang, Bekasi 17530', mapUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d126907.08630766465!2d106.74415893322194!3d-6.284242699999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e69f14371078bd7%3A0x6b8db5e263c9b74!2sToyota%20Motor%20Manufacturing%20Indonesia!5e0!3m2!1sen!2sid!4v1700000000000!5m2!1sen!2sid', pic: 'Ahmad S.', picEmail: 'ahmad.s@supplier.com', picPhone: '+62 812-3456-7890' },
+        { id: 2, supplierId: 'SUP002', name: 'PT Plasticindo', address: 'Jl. Raya Cisoka No. 88, Tangerang, Banten 15730', mapUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d126907.08630766465!2d106.74415893322194!3d-6.284242699999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e69f14371078bd7%3A0x6b8db5e263c9b74!2sToyota%20Motor%20Manufacturing%20Indonesia!5e0!3m2!1sen!2sid!4v1700000000000!5m2!1sen!2sid', pic: 'Ahmad S.', picEmail: 'ahmad.s@supplier.com', picPhone: '+62 812-3456-7890' },
+        { id: 3, supplierId: 'SUP003', name: 'PT Metalindo', address: 'Jl. Industri MM2100 Blok B-5, Cibitung, Bekasi 17520', mapUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d126907.08630766465!2d106.74415893322194!3d-6.284242699999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e69f14371078bd7%3A0x6b8db5e263c9b74!2sToyota%20Motor%20Manufacturing%20Indonesia!5e0!3m2!1sen!2sid!4v1700000000000!5m2!1sen!2sid', pic: 'Ahmad S.', picEmail: 'ahmad.s@supplier.com', picPhone: '+62 812-3456-7890' }
+    ],
+
     toolings: [
         {
             id: 'T-2025-001',

@@ -222,8 +222,14 @@ insert into public."productModels" ("id", "name") values (2, 'Sedan-Y') on confl
 insert into public."productModels" ("id", "name") values (3, 'Semua Model') on conflict do nothing;
 insert into public."productModels" ("id", "name") values (4, 'Hatchback-Z') on conflict do nothing;
 
+-- suppliers
+insert into public."suppliers" ("id", "supplierId", "name", "address", "mapUrl", "pic", "picEmail", "picPhone") values (1, 'SUP001', 'PT Auto Parts', 'Jl. Industri Raya No. 123, Kawasan Industri Cikarang, Bekasi 17530', 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d126907.08630766465!2d106.74415893322194!3d-6.284242699999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e69f14371078bd7%3A0x6b8db5e263c9b74!2sToyota%20Motor%20Manufacturing%20Indonesia!5e0!3m2!1sen!2sid!4v1700000000000!5m2!1sen!2sid', 'Ahmad S.', 'ahmad.s@supplier.com', '+62 812-3456-7890') on conflict do nothing;
+insert into public."suppliers" ("id", "supplierId", "name", "address", "mapUrl", "pic", "picEmail", "picPhone") values (2, 'SUP002', 'PT Plasticindo', 'Jl. Raya Cisoka No. 88, Tangerang, Banten 15730', 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d126907.08630766465!2d106.74415893322194!3d-6.284242699999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e69f14371078bd7%3A0x6b8db5e263c9b74!2sToyota%20Motor%20Manufacturing%20Indonesia!5e0!3m2!1sen!2sid!4v1700000000000!5m2!1sen!2sid', 'Ahmad S.', 'ahmad.s@supplier.com', '+62 812-3456-7890') on conflict do nothing;
+insert into public."suppliers" ("id", "supplierId", "name", "address", "mapUrl", "pic", "picEmail", "picPhone") values (3, 'SUP003', 'PT Metalindo', 'Jl. Industri MM2100 Blok B-5, Cibitung, Bekasi 17520', 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d126907.08630766465!2d106.74415893322194!3d-6.284242699999998!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e69f14371078bd7%3A0x6b8db5e263c9b74!2sToyota%20Motor%20Manufacturing%20Indonesia!5e0!3m2!1sen!2sid!4v1700000000000!5m2!1sen!2sid', 'Ahmad S.', 'ahmad.s@supplier.com', '+62 812-3456-7890') on conflict do nothing;
+
 -- Reset sequences after explicit inserts
 select setval(pg_get_serial_sequence('public."users"', 'id'), (select max("id") from public."users"));
 select setval(pg_get_serial_sequence('public."notifications"', 'id'), (select max("id") from public."notifications"));
 select setval(pg_get_serial_sequence('public."dieTypes"', 'id'), (select max("id") from public."dieTypes"));
 select setval(pg_get_serial_sequence('public."productModels"', 'id'), (select max("id") from public."productModels"));
+select setval(pg_get_serial_sequence('public."suppliers"', 'id'), (select max("id") from public."suppliers"));

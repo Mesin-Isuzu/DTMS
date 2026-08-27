@@ -167,11 +167,19 @@ out.push('-- productModels');
 });
 out.push('');
 
+// Suppliers
+out.push('-- suppliers');
+(d.suppliers || []).forEach(x => {
+  out.push(rowSql('suppliers', x, ['id', 'supplierId', 'name', 'address', 'mapUrl', 'pic', 'picEmail', 'picPhone']));
+});
+out.push('');
+
 out.push('-- Reset sequences after explicit inserts');
 out.push('select setval(pg_get_serial_sequence(\'public."users"\', \'id\'), (select max("id") from public."users"));');
 out.push('select setval(pg_get_serial_sequence(\'public."notifications"\', \'id\'), (select max("id") from public."notifications"));');
 out.push('select setval(pg_get_serial_sequence(\'public."dieTypes"\', \'id\'), (select max("id") from public."dieTypes"));');
 out.push('select setval(pg_get_serial_sequence(\'public."productModels"\', \'id\'), (select max("id") from public."productModels"));');
+out.push('select setval(pg_get_serial_sequence(\'public."suppliers"\', \'id\'), (select max("id") from public."suppliers"));');
 out.push('');
 
 const outPath = path.join(__dirname, '..', 'supabase', 'seed.sql');

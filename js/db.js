@@ -98,20 +98,22 @@ const DTMS = (function () {
         { data: toolings, error: e2 },
         { data: dieTypes, error: e3 },
         { data: productModels, error: e4 },
-        { data: maintenanceLogs, error: e5 },
-        { data: supplierTasks, error: e6 },
-        { data: shootLogs, error: e7 },
-        { data: productionLogs, error: e8 },
-        { data: deliveryLogs, error: e9 },
-        { data: movementLogs, error: e10 },
-        { data: notifications, error: e11 },
-        { data: auditLogs, error: e12 },
-        { data: kpiRow, error: e13 }
+        { data: suppliers, error: e5 },
+        { data: maintenanceLogs, error: e6 },
+        { data: supplierTasks, error: e7 },
+        { data: shootLogs, error: e8 },
+        { data: productionLogs, error: e9 },
+        { data: deliveryLogs, error: e10 },
+        { data: movementLogs, error: e11 },
+        { data: notifications, error: e12 },
+        { data: auditLogs, error: e13 },
+        { data: kpiRow, error: e14 }
       ] = await Promise.all([
         client.from('users').select('*'),
         client.from('toolings').select('*'),
         client.from('dieTypes').select('*'),
         client.from('productModels').select('*'),
+        client.from('suppliers').select('*'),
         client.from('maintenanceLogs').select('*'),
         client.from('supplierTasks').select('*'),
         client.from('shootLogs').select('*'),
@@ -123,7 +125,7 @@ const DTMS = (function () {
         client.from('kpis').select('*').single()
       ]);
 
-      const errors = [e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13].filter(Boolean);
+      const errors = [e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14].filter(Boolean);
       if (errors.length) {
         console.warn('Partial load errors:', errors);
       }
@@ -133,6 +135,7 @@ const DTMS = (function () {
         toolings: toolings || [],
         dieTypes: dieTypes || [],
         productModels: productModels || [],
+        suppliers: suppliers || [],
         maintenanceLogs: maintenanceLogs || [],
         supplierTasks: supplierTasks || [],
         shootLogs: shootLogs || [],
@@ -210,6 +213,10 @@ const DTMS = (function () {
 
   async function insertProductModel(obj) { return insert('productModels', obj); }
   async function deleteProductModel(id) { return remove('productModels', id); }
+
+  async function insertSupplier(obj) { return insert('suppliers', obj); }
+  async function updateSupplier(id, obj) { return update('suppliers', id, obj); }
+  async function deleteSupplier(id) { return remove('suppliers', id); }
 
   async function insertMaintenanceLog(obj) { return insert('maintenanceLogs', obj); }
   async function updateMaintenanceLog(id, obj) { return update('maintenanceLogs', id, obj); }
@@ -359,6 +366,9 @@ const DTMS = (function () {
     deleteDieType,
     insertProductModel,
     deleteProductModel,
+    insertSupplier,
+    updateSupplier,
+    deleteSupplier,
     insertMaintenanceLog,
     updateMaintenanceLog,
     deleteMaintenanceLog,
