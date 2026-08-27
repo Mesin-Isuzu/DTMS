@@ -57,6 +57,8 @@ class App {
                         if (!exists) {
                             await window.DTMS.logout();
                             this.currentUser = null;
+                        } else {
+                            await this._syncAuthMetadataFromUsers(this.currentUser.email, this.currentUser);
                         }
                     }
                 }
@@ -175,6 +177,7 @@ class App {
                 return;
               }
             }
+            await this._syncAuthMetadataFromUsers(authUser.email, meta);
             window.location.hash = '#dashboard';
             return;
         }
@@ -226,6 +229,52 @@ class App {
         const sid=this._supplierIdByName(name);
         sidEl.value=sid||'';
         sidEl.placeholder=sid?'Terisi otomatis dari Supplier':'Tidak ditemukan, isi manual bila perlu';
+    }
+
+    async _syncAuthMetadataFromUsers(authEmail, meta) {
+        if (!(window.DTMS && window.DTMS.enabled())) return;
+        const row = (this.data.users||[]).find(u => u.email === authEmail);
+        if (!row) return;
+        const rowSupplierId = row.supplierId || null;
+        const metaSupplierId = meta.supplierId || null;
+        const needs = rowSupplierId !== metaSupplierId
+            || (row.role || null) !== (meta.role || null)
+            || (row.name || null) !== (meta.name || null)
+            || (row.company || null) !== (meta.company || null);
+        if (!needs) return;
+        try {
+            await window.DTMS.updateUserMetadata({ username: row.username || meta.username, name: row.name, role: row.role, company: row.company || '', supplierId: rowSupplierId });
+            const dbData2 = await window.DTMS.loadAll();
+            if (dbData2) this.data = dbData2;
+            if (this.currentUser) {
+                this.currentUser.supplierId = rowSupplierId;
+                this.currentUser.role = row.role;
+                this.currentUser.name = row.name;
+                this.currentUser.company = row.company || '';
+            }
+        } catch (e) {
+            console.error('Auth metadata self-sync error:', e);
+        }
+    }
+
+    async repairSupplierLinks() {
+        if (!this.currentUser.role.includes('Admin')) return;
+        if(!confirm('Tool ini akan mencocokkan Supplier ID semua dies dengan daftar user supplier (berdasarkan nama/perusahaan) dan memperbaruinya di database. Lanjutkan?'))return;
+        let fixed=0, kept=0;
+        for(const t of this.data.toolings){
+            const sid=this._supplierIdByName(t.supplier);
+            if(sid && t.supplierId!==sid){
+                t.supplierId=sid;
+                if(window.DTMS && window.DTMS.enabled()){
+                    try{await window.DTMS.updateTooling(t.id,{supplierId:sid});}catch(e){console.error('Gagal update supplierId',t.id,e);}
+                }
+                fixed++;
+            } else if(!sid && t.supplierId){
+                kept++;
+            }
+        }
+        alert(`Perbaikan selesai. ${fixed} dies diperbarui Supplier ID-nya.${kept?` ${kept} dies tetap memakai Supplier ID lama (nama supplier tidak cocok dengan user mana pun).`:''}`);
+        document.getElementById('app-layout')?.remove(); this.router();
     }
 
     _isGoogleMapsUrl(url) {
@@ -1631,7 +1680,7 @@ getToolingListView() {
         const dtRows=dt.map(x=>{const usage=this.data.toolings.filter(t=>t.type===x.name).length;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border-color)"><span style="font-size:0.9rem">${x.name}</span><span style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0"><span class="text-muted" style="font-size:0.75rem">${usage} tooling</span><button class="btn btn-sm btn-danger" onclick="app.submitDeleteDieType(${x.id})" title="Hapus" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button></span></div>`;}).join('')||'<div style="padding:1rem;text-align:center;color:var(--text-secondary)">Belum ada tipe dies.</div>';
         const pmRows=pm.map(x=>{const usage=this.data.toolings.filter(t=>t.model===x.name).length;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border-color)"><span style="font-size:0.9rem">${x.name}</span><span style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0"><span class="text-muted" style="font-size:0.75rem">${usage} tooling</span><button class="btn btn-sm btn-danger" onclick="app.submitDeleteProductModel(${x.id})" title="Hapus" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button></span></div>`;}).join('')||'<div style="padding:1rem;text-align:center;color:var(--text-secondary)">Belum ada model.</div>';
         const auditList=al.map(a=>`<div style="display:flex;gap:0.75rem;padding:0.75rem 0;border-bottom:1px solid var(--border-color)"><div style="width:32px;height:32px;border-radius:50%;background:${a.color}15;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas ${a.icon}" style="color:${a.color};font-size:0.75rem"></i></div><div style="flex:1"><div style="font-size:0.85rem">${a.action}</div><div style="font-size:0.75rem;color:var(--text-secondary)">${a.user} · ${a.time}</div></div></div>`).join('');
-        return `<div class="grid-2-1"><div><div class="card"><div class="card-header"><h3 class="card-title">Manajemen Pengguna</h3><button class="btn btn-primary" onclick="app.openAddUserModal()"><i class="fas fa-plus"></i> Tambah Pengguna</button></div><div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Username</th><th>Nama</th><th>Perusahaan</th><th>Role</th><th>Aksi</th></tr></thead><tbody>${uRows}</tbody></table></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Manajemen Tipe Dies</h3></div><div class="card-body" style="padding:1rem 1.25rem"><div style="display:flex;gap:0.5rem;margin-bottom:0.75rem"><input type="text" id="dt-new-type" class="form-control" placeholder="Contoh: Progressive Die" onkeydown="if(event.key==='Enter')app.submitAddDieType()"><button class="btn btn-primary" onclick="app.submitAddDieType()" style="flex-shrink:0"><i class="fas fa-plus"></i> Tambah</button></div><div id="dt-type-list">${dtRows}</div></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Manajemen Model</h3></div><div class="card-body" style="padding:1rem 1.25rem"><div style="display:flex;gap:0.5rem;margin-bottom:0.75rem"><input type="text" id="dt-new-model" class="form-control" placeholder="Contoh: SUV-Z" onkeydown="if(event.key==='Enter')app.submitAddProductModel()"><button class="btn btn-primary" onclick="app.submitAddProductModel()" style="flex-shrink:0"><i class="fas fa-plus"></i> Tambah</button></div><div id="dt-model-list">${pmRows}</div></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Log Aktivitas Sistem</h3></div><div class="card-body" style="padding:1rem 1.25rem">${auditList}</div></div></div><div><div class="card"><div class="card-header"><h3 class="card-title">Info Sistem</h3></div><div class="card-body"><div class="info-item mb-4"><span class="info-label">Versi</span><span class="info-value">1.0.0 MVP</span></div><div class="info-item mb-4"><span class="info-label">Tooling</span><span class="info-value">${this.data.toolings.length} data</span></div><div class="info-item mb-4"><span class="info-label">User</span><span class="info-value">${u.length} pengguna</span></div></div></div></div></div>`;
+        return `<div class="grid-2-1"><div><div class="card"><div class="card-header"><h3 class="card-title">Manajemen Pengguna</h3><button class="btn btn-primary" onclick="app.openAddUserModal()"><i class="fas fa-plus"></i> Tambah Pengguna</button></div><div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Username</th><th>Nama</th><th>Perusahaan</th><th>Role</th><th>Aksi</th></tr></thead><tbody>${uRows}</tbody></table></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Manajemen Tipe Dies</h3></div><div class="card-body" style="padding:1rem 1.25rem"><div style="display:flex;gap:0.5rem;margin-bottom:0.75rem"><input type="text" id="dt-new-type" class="form-control" placeholder="Contoh: Progressive Die" onkeydown="if(event.key==='Enter')app.submitAddDieType()"><button class="btn btn-primary" onclick="app.submitAddDieType()" style="flex-shrink:0"><i class="fas fa-plus"></i> Tambah</button></div><div id="dt-type-list">${dtRows}</div></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Manajemen Model</h3></div><div class="card-body" style="padding:1rem 1.25rem"><div style="display:flex;gap:0.5rem;margin-bottom:0.75rem"><input type="text" id="dt-new-model" class="form-control" placeholder="Contoh: SUV-Z" onkeydown="if(event.key==='Enter')app.submitAddProductModel()"><button class="btn btn-primary" onclick="app.submitAddProductModel()" style="flex-shrink:0"><i class="fas fa-plus"></i> Tambah</button></div><div id="dt-model-list">${pmRows}</div></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Log Aktivitas Sistem</h3></div><div class="card-body" style="padding:1rem 1.25rem">${auditList}</div></div></div><div><div class="card mb-4"><div class="card-header"><h3 class="card-title">Perbaikan Data</h3></div><div class="card-body"><p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem">Cocokkan Supplier ID semua dies dengan user supplier berdasarkan nama/perusahaan.</p><button class="btn btn-secondary" onclick="app.repairSupplierLinks()"><i class="fas fa-link"></i> Perbaiki Link Supplier ID</button></div></div><div class="card"><div class="card-header"><h3 class="card-title">Info Sistem</h3></div><div class="card-body"><div class="info-item mb-4"><span class="info-label">Versi</span><span class="info-value">1.0.0 MVP</span></div><div class="info-item mb-4"><span class="info-label">Tooling</span><span class="info-value">${this.data.toolings.length} data</span></div><div class="info-item mb-4"><span class="info-label">User</span><span class="info-value">${u.length} pengguna</span></div></div></div></div></div>`;
     }
 
     // ===== NOTIFICATIONS =====
