@@ -1826,13 +1826,13 @@ getToolingListView() {
         this.updateRowNumbers();
     }
 
-    updateRowNumbers() {
-        const rows = document.querySelectorAll('#toolingTable tbody tr');
+    updateRowNumbers(tableId='toolingTable') {
+        const rows = document.querySelectorAll('#'+tableId+' tbody tr');
         let num = 1;
         rows.forEach(row => {
             if (row.style.display !== 'none') {
                 const td = row.querySelector('td');
-                if (td) td.textContent = num++;
+                if (td && !td.hasAttribute('colspan')) td.textContent = num++;
             }
         });
     }
@@ -2917,16 +2917,82 @@ getToolingListView() {
     getSuppliersView() {
         document.getElementById('header-title').innerText = 'Daftar Supplier';
         const isAdmin=this.currentUser.role.includes('Admin');
-        const sp=this.data.suppliers||[];
-        const toolSuppliers=new Set((this.data.toolings||[]).map(t=>t.supplierId).filter(Boolean));
-        const usedCount=sp.filter(x=>toolSuppliers.has(x.supplierId)).length;
-        const picCount=sp.filter(x=>x.pic&&x.picEmail&&x.picPhone).length;
-        const sRows=sp.map(x=>{
+        const sp=[...(this.data.suppliers||[])];
+        if(this._supplierSortKey) sp.sort(this._supplierComparator(this._supplierSortKey,this._supplierSortDir||'asc'));
+        const sortIcon=(key)=>`<i class="fas ${this._supplierSortKey===key?(this._supplierSortDir==='desc'?'fa-sort-down':'fa-sort-up'):'fa-sort'} sort-icon" style="color:${this._supplierSortKey===key?'var(--accent-color)':'var(--text-tertiary)'}"></i>`;
+        const sRows=sp.map((x,i)=>{
             const editBtn=isAdmin?`<button class="btn btn-sm btn-secondary" onclick="app.openEditSupplierModal(${x.id})" title="Edit" style="padding:0.25rem 0.5rem;margin-right:0.25rem"><i class="fas fa-edit"></i></button>`:`<button class="btn btn-sm btn-secondary" disabled title="Khusus Admin" style="padding:0.25rem 0.5rem;margin-right:0.25rem"><i class="fas fa-edit"></i></button>`;
             const delBtn=isAdmin?`<button class="btn btn-sm btn-danger" onclick="app.submitDeleteSupplier(${x.id})" title="Hapus" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button>`:`<button class="btn btn-sm btn-danger" disabled title="Khusus Admin" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button>`;
-            return `<tr><td>${x.supplierId}</td><td class="font-semibold">${x.name}</td><td style="max-width:220px;white-space:normal">${x.address||'-'}</td><td>${x.mapUrl?`<a href="${x.mapUrl}" target="_blank" title="Buka Google Maps"><i class="fas fa-map-marker-alt" style="color:var(--accent-color)"></i> Maps</a>`:'-'}</td><td>${x.pic||'-'}</td><td>${x.picEmail||'-'}</td><td>${x.picPhone||'-'}</td><td>${editBtn}${delBtn}</td></tr>`;
-        }).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--text-secondary);padding:1rem">Belum ada supplier.</td></tr>';
-        return `<div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem"><div class="kpi-card"><div class="kpi-icon dark"><i class="fas fa-building"></i></div><div class="kpi-content"><span class="kpi-title">Total Supplier</span><div class="kpi-value">${sp.length}</div></div></div><div class="kpi-card"><div class="kpi-icon blue"><i class="fas fa-tools"></i></div><div class="kpi-content"><span class="kpi-title">Supplier Dipakai di Tooling</span><div class="kpi-value">${usedCount}</div></div></div><div class="kpi-card"><div class="kpi-icon green"><i class="fas fa-user-check"></i></div><div class="kpi-content"><span class="kpi-title">PIC Terlengkapi</span><div class="kpi-value">${picCount}</div></div></div></div><div class="card"><div class="card-header"><h3 class="card-title">Daftar Supplier</h3><div class="header-actions">${isAdmin?`<button class="btn btn-primary" onclick="app.openAddSupplierModal()"><i class="fas fa-plus"></i> Tambah Supplier</button>`:''}</div></div><div class="table-responsive"><table class="table" id="suppliersTable"><thead><tr><th>Supplier ID</th><th>Nama Supplier</th><th>Alamat Supplier</th><th>Link Google Maps</th><th>Nama PIC</th><th>Email PIC</th><th>Telepon PIC</th><th>Aksi</th></tr></thead><tbody>${sRows}</tbody></table></div></div>`;
+            return `<tr><td>${i+1}</td><td>${x.supplierId}</td><td class="font-semibold">${x.name}</td><td style="max-width:220px;white-space:normal">${x.address||'-'}</td><td>${x.mapUrl?`<a href="${x.mapUrl}" target="_blank" title="Buka Google Maps"><i class="fas fa-map-marker-alt" style="color:var(--accent-color)"></i> Maps</a>`:'-'}</td><td>${x.pic||'-'}</td><td>${x.picEmail||'-'}</td><td>${x.picPhone||'-'}</td><td>${editBtn}${delBtn}</td></tr>`;
+        }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--text-secondary);padding:1rem">Belum ada supplier.</td></tr>';
+        setTimeout(()=>this.initSupplierSearch(),0);
+        return `<div class="card"><div class="card-header"><h3 class="card-title">Daftar Supplier</h3><div class="header-actions">${isAdmin?`<button class="btn btn-primary" onclick="app.openAddSupplierModal()"><i class="fas fa-plus"></i> Tambah Supplier</button>`:''}</div></div><div class="table-toolbar"><div class="search-box"><i class="fas fa-search"></i><input type="text" class="form-control" id="supplierSearch" placeholder="Cari Supplier ID, Nama, atau Alamat..."></div></div><div class="table-responsive"><table class="table" id="suppliersTable"><thead><tr><th>No.</th><th id="th-sort-supplierId" onclick="app.sortSuppliers('supplierId')" style="cursor:pointer;user-select:none">Supplier ID ${sortIcon('supplierId')}</th><th id="th-sort-name" onclick="app.sortSuppliers('name')" style="cursor:pointer;user-select:none">Nama Supplier ${sortIcon('name')}</th><th>Alamat Supplier</th><th>Link Google Maps</th><th>Nama PIC</th><th>Email PIC</th><th>Telepon PIC</th><th>Aksi</th></tr></thead><tbody>${sRows}</tbody></table></div></div>`;
+    }
+
+    initSupplierSearch() {
+        const searchInput=document.getElementById('supplierSearch');
+        if(!searchInput) return;
+        searchInput.addEventListener('keyup',(e)=>{
+            const term=e.target.value.toLowerCase();
+            const rows=document.querySelectorAll('#suppliersTable tbody tr');
+            rows.forEach(row=>{
+                const cells=row.querySelectorAll('td');
+                if(cells.length===0||cells.length===1) return;
+                const text=[cells[1],cells[2],cells[3]].map(c=>(c.textContent||'').toLowerCase()).join(' ');
+                row.style.display=text.includes(term)?'':'none';
+            });
+            this.updateRowNumbers('suppliersTable');
+        });
+    }
+
+    sortSuppliers(key) {
+        const table=document.getElementById('suppliersTable');
+        if(!table) return;
+        const tbody=table.querySelector('tbody');
+        if(!tbody) return;
+        const rows=Array.from(tbody.querySelectorAll('tr'));
+        if(rows.length===0||(rows.length===1&&rows[0].cells.length===1)) return;
+        if(this._supplierSortKey===key){this._supplierSortDir=this._supplierSortDir==='asc'?'desc':'asc';}
+        else {this._supplierSortKey=key; this._supplierSortDir='asc';}
+        const cmp=this._supplierComparator(key,this._supplierSortDir);
+        const idx=key==='supplierId'?1:2;
+        const getText=r=>{const c=r.cells[idx];return c?(c.textContent||'').trim():'';};
+        rows.sort((a,b)=>cmp(getText(a),getText(b)));
+        rows.forEach(r=>tbody.appendChild(r));
+        this._updateSupplierSortIndicators();
+        this.updateRowNumbers('suppliersTable');
+    }
+
+    _supplierComparator(key,dir){
+        const d=dir==='desc'?-1:1;
+        const val=v=>{
+            if(v&&typeof v==='object'&&!Array.isArray(v)){
+                return key==='supplierId'?String(v.supplierId||''):String(v.name||'');
+            }
+            return String(v||'');
+        };
+        if(key==='supplierId'){
+            return (a,b)=>{
+                const sa=val(a), sb=val(b);
+                const na=parseInt(sa.replace(/[^0-9]/g,''))||0;
+                const nb=parseInt(sb.replace(/[^0-9]/g,''))||0;
+                return (na!==nb?na-nb:sa.localeCompare(sb))*d;
+            };
+        }
+        return (a,b)=>val(a).localeCompare(val(b),'id')*d;
+    }
+
+    _updateSupplierSortIndicators(){
+        const update=(thId,key)=>{
+            const th=document.getElementById(thId);
+            const i=th?th.querySelector('.sort-icon'):null;
+            if(!i) return;
+            const active=this._supplierSortKey===key;
+            i.className='fas '+(active?(this._supplierSortDir==='desc'?'fa-sort-down':'fa-sort-up'):'fa-sort');
+            i.style.color=active?'var(--accent-color)':'var(--text-tertiary)';
+        };
+        update('th-sort-supplierId','supplierId');
+        update('th-sort-name','name');
     }
 
     openAddSupplierModal() {
