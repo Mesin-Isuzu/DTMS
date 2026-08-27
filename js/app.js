@@ -655,17 +655,17 @@ getToolingListView() {
                         <div>
                             <span class="info-label">Foto Part</span>
                             ${t.partImage ? `<img src="${t.partImage}" alt="Part Image" style="width: 100%; height: auto; border-radius: 8px; margin-top: 0.5rem; border: 1px solid var(--border-color);">` : '<div style="background: #f1f5f9; padding: 2rem; text-align: center; border-radius: 8px; margin-top: 0.5rem; color: #64748b;">Belum ada foto</div>'}
-                            ${this.currentUser.role.includes('Supplier') ? `<div style="display:flex;gap:0.5rem;margin-top:0.5rem">${t.partImage ? `<button class="btn btn-danger btn-sm" onclick="app.removePhoto('${t.id}','partImage')" style="font-size:0.75rem"><i class="fas fa-trash"></i></button>` : ''}<button class="btn btn-primary btn-sm" onclick="app.openPhotoUploadModal('${t.id}','partImage')" style="font-size:0.75rem"><i class="fas fa-upload"></i> ${t.partImage ? 'Ganti' : 'Upload'}</button></div>` : ''}
+                            ${this.currentUser.role.includes('Admin') ? `<div style="display:flex;gap:0.5rem;margin-top:0.5rem">${t.partImage ? `<button class="btn btn-danger btn-sm" onclick="app.removePhoto('${t.id}','partImage')" style="font-size:0.75rem"><i class="fas fa-trash"></i></button>` : ''}<button class="btn btn-primary btn-sm" onclick="app.openPhotoUploadModal('${t.id}','partImage')" style="font-size:0.75rem"><i class="fas fa-upload"></i> ${t.partImage ? 'Ganti' : 'Upload'}</button></div>` : ''}
                         </div>
                         <div>
                             <span class="info-label">Foto Tooling/Dies 1</span>
                             ${t.toolImage ? `<img src="${t.toolImage}" alt="Tooling Image 1" style="width: 100%; height: auto; border-radius: 8px; margin-top: 0.5rem; border: 1px solid var(--border-color);">` : '<div style="background: #f1f5f9; padding: 2rem; text-align: center; border-radius: 8px; margin-top: 0.5rem; color: #64748b;">Belum ada foto</div>'}
-                            ${this.currentUser.role.includes('Supplier') ? `<div style="display:flex;gap:0.5rem;margin-top:0.5rem">${t.toolImage ? `<button class="btn btn-danger btn-sm" onclick="app.removePhoto('${t.id}','toolImage')" style="font-size:0.75rem"><i class="fas fa-trash"></i></button>` : ''}<button class="btn btn-primary btn-sm" onclick="app.openPhotoUploadModal('${t.id}','toolImage')" style="font-size:0.75rem"><i class="fas fa-upload"></i> ${t.toolImage ? 'Ganti' : 'Upload'}</button></div>` : ''}
+                            ${this.currentUser.role.includes('Admin') ? `<div style="display:flex;gap:0.5rem;margin-top:0.5rem">${t.toolImage ? `<button class="btn btn-danger btn-sm" onclick="app.removePhoto('${t.id}','toolImage')" style="font-size:0.75rem"><i class="fas fa-trash"></i></button>` : ''}<button class="btn btn-primary btn-sm" onclick="app.openPhotoUploadModal('${t.id}','toolImage')" style="font-size:0.75rem"><i class="fas fa-upload"></i> ${t.toolImage ? 'Ganti' : 'Upload'}</button></div>` : ''}
                         </div>
                         <div>
                             <span class="info-label">Foto Tooling/Dies 2</span>
                             ${t.toolImage2 ? `<img src="${t.toolImage2}" alt="Tooling Image 2" style="width: 100%; height: auto; border-radius: 8px; margin-top: 0.5rem; border: 1px solid var(--border-color);">` : '<div style="background: #f1f5f9; padding: 2rem; text-align: center; border-radius: 8px; margin-top: 0.5rem; color: #64748b;">Belum ada foto</div>'}
-                            ${this.currentUser.role.includes('Supplier') ? `<div style="display:flex;gap:0.5rem;margin-top:0.5rem">${t.toolImage2 ? `<button class="btn btn-danger btn-sm" onclick="app.removePhoto('${t.id}','toolImage2')" style="font-size:0.75rem"><i class="fas fa-trash"></i></button>` : ''}<button class="btn btn-primary btn-sm" onclick="app.openPhotoUploadModal('${t.id}','toolImage2')" style="font-size:0.75rem"><i class="fas fa-upload"></i> ${t.toolImage2 ? 'Ganti' : 'Upload'}</button></div>` : ''}
+                            ${this.currentUser.role.includes('Admin') ? `<div style="display:flex;gap:0.5rem;margin-top:0.5rem">${t.toolImage2 ? `<button class="btn btn-danger btn-sm" onclick="app.removePhoto('${t.id}','toolImage2')" style="font-size:0.75rem"><i class="fas fa-trash"></i></button>` : ''}<button class="btn btn-primary btn-sm" onclick="app.openPhotoUploadModal('${t.id}','toolImage2')" style="font-size:0.75rem"><i class="fas fa-upload"></i> ${t.toolImage2 ? 'Ganti' : 'Upload'}</button></div>` : ''}
                         </div>
                     </div>
                 </div>
@@ -2427,6 +2427,7 @@ getToolingListView() {
 
     // ===== PHOTO UPLOAD (Part, Tooling 1, Tooling 2) =====
     openPhotoUploadModal(toolId, fieldType) {
+        if (!this.currentUser.role.includes('Admin')) return;
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const labels = { partImage: 'Foto Part', toolImage: 'Foto Tooling/Dies 1', toolImage2: 'Foto Tooling/Dies 2' };
@@ -2456,6 +2457,7 @@ getToolingListView() {
     }
 
     async submitPhotoUpload(toolId, fieldType) {
+        if (!this.currentUser.role.includes('Admin')) return;
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const fileInput = document.getElementById('pu-file');
@@ -2488,6 +2490,7 @@ getToolingListView() {
     }
 
     async removePhoto(toolId, fieldType) {
+        if (!this.currentUser.role.includes('Admin')) return;
         const t = this.data.toolings.find(x => x.id === toolId);
         if (!t) return;
         const labels = { partImage: 'Foto Part', toolImage: 'Foto Tooling/Dies 1', toolImage2: 'Foto Tooling/Dies 2' };
