@@ -14,6 +14,19 @@ const mockData = {
         overdueTasks: 3
     },
 
+    dieTypes: [
+        { id: 1, name: 'Stamping Die' },
+        { id: 2, name: 'Injection Mold' },
+        { id: 3, name: 'Die Casting' }
+    ],
+
+    productModels: [
+        { id: 1, name: 'SUV-X' },
+        { id: 2, name: 'Sedan-Y' },
+        { id: 3, name: 'Semua Model' },
+        { id: 4, name: 'Hatchback-Z' }
+    ],
+
     toolings: [
         {
             id: 'T-2025-001',

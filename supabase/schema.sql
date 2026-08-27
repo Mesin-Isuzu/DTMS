@@ -94,7 +94,51 @@ create policy "users_admin_all" on public."users"
   for all to authenticated using (public.is_admin());
 
 -- ------------------------------------------------------------
--- 3. Toolings
+-- 3. Master data: die types
+-- ------------------------------------------------------------
+create table if not exists public."dieTypes" (
+  "id" serial primary key,
+  "name" text unique not null,
+  "createdAt" timestamptz default now()
+);
+
+comment on table public."dieTypes" is 'Master list of die/tooling types';
+
+alter table public."dieTypes" enable row level security;
+
+drop policy if exists "dieTypes_select" on public."dieTypes";
+create policy "dieTypes_select" on public."dieTypes"
+  for select to authenticated using (true);
+
+drop policy if exists "dieTypes_admin" on public."dieTypes";
+create policy "dieTypes_admin" on public."dieTypes"
+  for all to authenticated using (public.is_admin())
+  with check (public.is_admin());
+
+-- ------------------------------------------------------------
+-- 4. Master data: product models
+-- ------------------------------------------------------------
+create table if not exists public."productModels" (
+  "id" serial primary key,
+  "name" text unique not null,
+  "createdAt" timestamptz default now()
+);
+
+comment on table public."productModels" is 'Master list of product models';
+
+alter table public."productModels" enable row level security;
+
+drop policy if exists "productModels_select" on public."productModels";
+create policy "productModels_select" on public."productModels"
+  for select to authenticated using (true);
+
+drop policy if exists "productModels_admin" on public."productModels";
+create policy "productModels_admin" on public."productModels"
+  for all to authenticated using (public.is_admin())
+  with check (public.is_admin());
+
+-- ------------------------------------------------------------
+-- 5. Toolings
 -- ------------------------------------------------------------
 create table if not exists public."toolings" (
   "id" text primary key,
@@ -172,7 +216,7 @@ create policy "toolings_delete" on public."toolings"
   using (public.is_admin());
 
 -- ------------------------------------------------------------
--- 4. Maintenance logs
+-- 6. Maintenance logs
 -- ------------------------------------------------------------
 create table if not exists public."maintenanceLogs" (
   "id" text primary key,
@@ -207,7 +251,7 @@ create policy "maintenance_write" on public."maintenanceLogs"
   with check (public.can_access_all_toolings());
 
 -- ------------------------------------------------------------
--- 5. Supplier tasks
+-- 7. Supplier tasks
 -- ------------------------------------------------------------
 create table if not exists public."supplierTasks" (
   "id" text primary key,
@@ -244,7 +288,7 @@ create policy "supplierTasks_write" on public."supplierTasks"
   with check (public.can_access_all_toolings());
 
 -- ------------------------------------------------------------
--- 6. Shoot logs
+-- 8. Shoot logs
 -- ------------------------------------------------------------
 create table if not exists public."shootLogs" (
   "id" text primary key,
@@ -272,7 +316,7 @@ create policy "shootLogs_write" on public."shootLogs"
   with check (public.can_access_all_toolings());
 
 -- ------------------------------------------------------------
--- 7. Production logs
+-- 9. Production logs
 -- ------------------------------------------------------------
 create table if not exists public."productionLogs" (
   "id" text primary key,
@@ -299,7 +343,7 @@ create policy "productionLogs_write" on public."productionLogs"
   with check (public.can_access_all_toolings());
 
 -- ------------------------------------------------------------
--- 8. Delivery logs
+-- 10. Delivery logs
 -- ------------------------------------------------------------
 create table if not exists public."deliveryLogs" (
   "id" text primary key,
@@ -328,7 +372,7 @@ create policy "deliveryLogs_write" on public."deliveryLogs"
   with check (public.can_access_all_toolings());
 
 -- ------------------------------------------------------------
--- 9. Movement logs
+-- 11. Movement logs
 -- ------------------------------------------------------------
 create table if not exists public."movementLogs" (
   "id" text primary key,
@@ -360,7 +404,7 @@ create policy "movementLogs_write" on public."movementLogs"
   with check (public.can_access_all_toolings());
 
 -- ------------------------------------------------------------
--- 10. Notifications
+-- 12. Notifications
 -- ------------------------------------------------------------
 create table if not exists public."notifications" (
   "id" serial primary key,
@@ -389,7 +433,7 @@ create policy "notifications_admin" on public."notifications"
   with check (public.is_admin());
 
 -- ------------------------------------------------------------
--- 11. Audit logs
+-- 13. Audit logs
 -- ------------------------------------------------------------
 create table if not exists public."auditLogs" (
   "id" uuid primary key default gen_random_uuid(),
@@ -420,7 +464,7 @@ create policy "auditLogs_admin" on public."auditLogs"
   using (public.is_admin());
 
 -- ------------------------------------------------------------
--- 12. Updated-at helper for toolings
+-- 14. Updated-at helper for toolings
 -- ------------------------------------------------------------
 create or replace function public.set_updated_at()
 returns trigger
@@ -438,7 +482,7 @@ create trigger trg_toolings_updated_at
   for each row execute function public.set_updated_at();
 
 -- ------------------------------------------------------------
--- 13. Useful views
+-- 15. Useful views
 -- ------------------------------------------------------------
 create or replace view public.kpis as
 select

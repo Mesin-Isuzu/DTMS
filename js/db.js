@@ -96,18 +96,22 @@ const DTMS = (function () {
       const [
         { data: users, error: e1 },
         { data: toolings, error: e2 },
-        { data: maintenanceLogs, error: e3 },
-        { data: supplierTasks, error: e4 },
-        { data: shootLogs, error: e5 },
-        { data: productionLogs, error: e6 },
-        { data: deliveryLogs, error: e7 },
-        { data: movementLogs, error: e8 },
-        { data: notifications, error: e9 },
-        { data: auditLogs, error: e10 },
-        { data: kpiRow, error: e11 }
+        { data: dieTypes, error: e3 },
+        { data: productModels, error: e4 },
+        { data: maintenanceLogs, error: e5 },
+        { data: supplierTasks, error: e6 },
+        { data: shootLogs, error: e7 },
+        { data: productionLogs, error: e8 },
+        { data: deliveryLogs, error: e9 },
+        { data: movementLogs, error: e10 },
+        { data: notifications, error: e11 },
+        { data: auditLogs, error: e12 },
+        { data: kpiRow, error: e13 }
       ] = await Promise.all([
         client.from('users').select('*'),
         client.from('toolings').select('*'),
+        client.from('dieTypes').select('*'),
+        client.from('productModels').select('*'),
         client.from('maintenanceLogs').select('*'),
         client.from('supplierTasks').select('*'),
         client.from('shootLogs').select('*'),
@@ -119,7 +123,7 @@ const DTMS = (function () {
         client.from('kpis').select('*').single()
       ]);
 
-      const errors = [e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11].filter(Boolean);
+      const errors = [e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13].filter(Boolean);
       if (errors.length) {
         console.warn('Partial load errors:', errors);
       }
@@ -127,6 +131,8 @@ const DTMS = (function () {
       return {
         users: users || [],
         toolings: toolings || [],
+        dieTypes: dieTypes || [],
+        productModels: productModels || [],
         maintenanceLogs: maintenanceLogs || [],
         supplierTasks: supplierTasks || [],
         shootLogs: shootLogs || [],
@@ -198,6 +204,12 @@ const DTMS = (function () {
   async function insertTooling(obj) { return insert('toolings', obj); }
   async function updateTooling(id, obj) { return update('toolings', id, obj); }
   async function deleteTooling(id) { return remove('toolings', id); }
+
+  async function insertDieType(obj) { return insert('dieTypes', obj); }
+  async function deleteDieType(id) { return remove('dieTypes', id); }
+
+  async function insertProductModel(obj) { return insert('productModels', obj); }
+  async function deleteProductModel(id) { return remove('productModels', id); }
 
   async function insertMaintenanceLog(obj) { return insert('maintenanceLogs', obj); }
   async function updateMaintenanceLog(id, obj) { return update('maintenanceLogs', id, obj); }
@@ -339,6 +351,10 @@ const DTMS = (function () {
     insertTooling,
     updateTooling,
     deleteTooling,
+    insertDieType,
+    deleteDieType,
+    insertProductModel,
+    deleteProductModel,
     insertMaintenanceLog,
     updateMaintenanceLog,
     deleteMaintenanceLog,

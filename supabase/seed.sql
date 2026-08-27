@@ -211,6 +211,19 @@ insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", 
 insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('Kemarin, 14:20', 1, 'Admin User', 'Menambahkan tooling baru T-2025-005', 'fa-plus-circle', '#8b5cf6');
 insert into public."auditLogs" ("time", "userId", "userName", "action", "icon", "color") values ('03 Nov, 11:00', 2, 'Budi Santoso', 'Mengubah status T-2025-003 menjadi Tidak Aktif', 'fa-edit', '#64748b');
 
+-- dieTypes
+insert into public."dieTypes" ("id", "name") values (1, 'Stamping Die');
+insert into public."dieTypes" ("id", "name") values (2, 'Injection Mold');
+insert into public."dieTypes" ("id", "name") values (3, 'Die Casting');
+
+-- productModels
+insert into public."productModels" ("id", "name") values (1, 'SUV-X');
+insert into public."productModels" ("id", "name") values (2, 'Sedan-Y');
+insert into public."productModels" ("id", "name") values (3, 'Semua Model');
+insert into public."productModels" ("id", "name") values (4, 'Hatchback-Z');
+
 -- Reset sequences after explicit inserts
 select setval(pg_get_serial_sequence('public."users"', 'id'), (select max("id") from public."users"));
 select setval(pg_get_serial_sequence('public."notifications"', 'id'), (select max("id") from public."notifications"));
+select setval(pg_get_serial_sequence('public."dieTypes"', 'id'), (select max("id") from public."dieTypes"));
+select setval(pg_get_serial_sequence('public."productModels"', 'id'), (select max("id") from public."productModels"));

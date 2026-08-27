@@ -156,9 +156,25 @@ d.auditLogs.forEach(a => {
 });
 out.push('');
 
+// Die types
+out.push('-- dieTypes');
+(d.dieTypes || []).forEach(x => {
+  out.push(rowSql('dieTypes', x, ['id', 'name']));
+});
+out.push('');
+
+// Product models
+out.push('-- productModels');
+(d.productModels || []).forEach(x => {
+  out.push(rowSql('productModels', x, ['id', 'name']));
+});
+out.push('');
+
 out.push('-- Reset sequences after explicit inserts');
 out.push('select setval(pg_get_serial_sequence(\'public."users"\', \'id\'), (select max("id") from public."users"));');
 out.push('select setval(pg_get_serial_sequence(\'public."notifications"\', \'id\'), (select max("id") from public."notifications"));');
+out.push('select setval(pg_get_serial_sequence(\'public."dieTypes"\', \'id\'), (select max("id") from public."dieTypes"));');
+out.push('select setval(pg_get_serial_sequence(\'public."productModels"\', \'id\'), (select max("id") from public."productModels"));');
 out.push('');
 
 const outPath = path.join(__dirname, '..', 'supabase', 'seed.sql');

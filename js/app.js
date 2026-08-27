@@ -1606,9 +1606,12 @@ getToolingListView() {
     getAdminView() {
         document.getElementById('header-title').innerText = 'Pengaturan Admin';
         const u=this.data.users, al=this.data.auditLogs||[];
+        const dt=this.data.dieTypes||[], pm=this.data.productModels||[];
         const uRows=u.map(x=>`<tr><td>${x.id}</td><td class="font-semibold">${x.username}</td><td>${x.name}</td><td>${x.company||'-'}</td><td><span class="badge badge-info">${x.role}</span></td><td><button class="btn btn-sm btn-secondary" onclick="app.openEditUserModal(${x.id})" title="Edit" style="padding:0.25rem 0.5rem;margin-right:0.25rem"><i class="fas fa-edit"></i></button>${x.username!=='admin'?`<button class="btn btn-sm btn-danger" onclick="app.submitDeleteUser(${x.id})" title="Hapus" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button>`:''}</td></tr>`).join('');
+        const dtRows=dt.map(x=>{const usage=this.data.toolings.filter(t=>t.type===x.name).length;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border-color)"><span style="font-size:0.9rem">${x.name}</span><span style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0"><span class="text-muted" style="font-size:0.75rem">${usage} tooling</span><button class="btn btn-sm btn-danger" onclick="app.submitDeleteDieType(${x.id})" title="Hapus" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button></span></div>`;}).join('')||'<div style="padding:1rem;text-align:center;color:var(--text-secondary)">Belum ada tipe dies.</div>';
+        const pmRows=pm.map(x=>{const usage=this.data.toolings.filter(t=>t.model===x.name).length;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border-color)"><span style="font-size:0.9rem">${x.name}</span><span style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0"><span class="text-muted" style="font-size:0.75rem">${usage} tooling</span><button class="btn btn-sm btn-danger" onclick="app.submitDeleteProductModel(${x.id})" title="Hapus" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button></span></div>`;}).join('')||'<div style="padding:1rem;text-align:center;color:var(--text-secondary)">Belum ada model.</div>';
         const auditList=al.map(a=>`<div style="display:flex;gap:0.75rem;padding:0.75rem 0;border-bottom:1px solid var(--border-color)"><div style="width:32px;height:32px;border-radius:50%;background:${a.color}15;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas ${a.icon}" style="color:${a.color};font-size:0.75rem"></i></div><div style="flex:1"><div style="font-size:0.85rem">${a.action}</div><div style="font-size:0.75rem;color:var(--text-secondary)">${a.user} · ${a.time}</div></div></div>`).join('');
-        return `<div class="grid-2-1"><div><div class="card"><div class="card-header"><h3 class="card-title">Manajemen Pengguna</h3><button class="btn btn-primary" onclick="app.openAddUserModal()"><i class="fas fa-plus"></i> Tambah Pengguna</button></div><div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Username</th><th>Nama</th><th>Perusahaan</th><th>Role</th><th>Aksi</th></tr></thead><tbody>${uRows}</tbody></table></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Log Aktivitas Sistem</h3></div><div class="card-body" style="padding:1rem 1.25rem">${auditList}</div></div></div><div><div class="card"><div class="card-header"><h3 class="card-title">Info Sistem</h3></div><div class="card-body"><div class="info-item mb-4"><span class="info-label">Versi</span><span class="info-value">1.0.0 MVP</span></div><div class="info-item mb-4"><span class="info-label">Tooling</span><span class="info-value">${this.data.toolings.length} data</span></div><div class="info-item mb-4"><span class="info-label">User</span><span class="info-value">${u.length} pengguna</span></div></div></div></div></div>`;
+        return `<div class="grid-2-1"><div><div class="card"><div class="card-header"><h3 class="card-title">Manajemen Pengguna</h3><button class="btn btn-primary" onclick="app.openAddUserModal()"><i class="fas fa-plus"></i> Tambah Pengguna</button></div><div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Username</th><th>Nama</th><th>Perusahaan</th><th>Role</th><th>Aksi</th></tr></thead><tbody>${uRows}</tbody></table></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Manajemen Tipe Dies</h3></div><div class="card-body" style="padding:1rem 1.25rem"><div style="display:flex;gap:0.5rem;margin-bottom:0.75rem"><input type="text" id="dt-new-type" class="form-control" placeholder="Contoh: Progressive Die" onkeydown="if(event.key==='Enter')app.submitAddDieType()"><button class="btn btn-primary" onclick="app.submitAddDieType()" style="flex-shrink:0"><i class="fas fa-plus"></i> Tambah</button></div><div id="dt-type-list">${dtRows}</div></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Manajemen Model</h3></div><div class="card-body" style="padding:1rem 1.25rem"><div style="display:flex;gap:0.5rem;margin-bottom:0.75rem"><input type="text" id="dt-new-model" class="form-control" placeholder="Contoh: SUV-Z" onkeydown="if(event.key==='Enter')app.submitAddProductModel()"><button class="btn btn-primary" onclick="app.submitAddProductModel()" style="flex-shrink:0"><i class="fas fa-plus"></i> Tambah</button></div><div id="dt-model-list">${pmRows}</div></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Log Aktivitas Sistem</h3></div><div class="card-body" style="padding:1rem 1.25rem">${auditList}</div></div></div><div><div class="card"><div class="card-header"><h3 class="card-title">Info Sistem</h3></div><div class="card-body"><div class="info-item mb-4"><span class="info-label">Versi</span><span class="info-value">1.0.0 MVP</span></div><div class="info-item mb-4"><span class="info-label">Tooling</span><span class="info-value">${this.data.toolings.length} data</span></div><div class="info-item mb-4"><span class="info-label">User</span><span class="info-value">${u.length} pengguna</span></div></div></div></div></div>`;
     }
 
     // ===== NOTIFICATIONS =====
@@ -1968,8 +1971,10 @@ getToolingListView() {
         const fgNum=(id,lbl,ph)=>`<div class="form-group"><label class="form-label">${lbl}</label><input id="at-${id}" class="form-control" type="text" placeholder="${ph||''}"></div>`;
         const statOpts=['Aktif','Dalam Perbaikan','Tidak Aktif'].map(s=>`<option>${s}</option>`).join('');
         const condOpts=['Baik','Perlu Perbaikan','NG'].map(c=>`<option>${c}</option>`).join('');
-        const typeOpts=[...new Set(this.data.toolings.map(t=>t.type))].map(o=>`<option>${o}</option>`).join('');
-        const modelOpts=[...new Set(this.data.toolings.map(t=>t.model).filter(m=>m&&m!=='-'))].map(o=>`<option>${o}</option>`).join('');
+        const typeMaster=(this.data.dieTypes||[]).map(x=>x.name);
+        const modelMaster=(this.data.productModels||[]).map(x=>x.name);
+        const typeOpts=[...new Set([...typeMaster,...this.data.toolings.map(t=>t.type)])].map(o=>`<option>${o}</option>`).join('');
+        const modelOpts=[...new Set([...modelMaster,...this.data.toolings.map(t=>t.model).filter(m=>m&&m!=='-')])].map(o=>`<option>${o}</option>`).join('');
         modal.innerHTML=`<div class="modal-content" style="max-width:640px;max-height:90vh"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-plus-circle" style="color:var(--accent-color);margin-right:0.5rem"></i>Daftar Tooling Baru</h3><button class="modal-close" onclick="app.closeModal('add-tooling-modal')">&times;</button></div><div class="modal-body" style="overflow-y:auto"><div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">${fg('name','Nama Tooling/Dies *','Contoh: Front Door Panel Die')}<div class="form-group"><label class="form-label">Tipe <span style="color:var(--danger-color)">*</span></label><select id="at-type" class="form-control">${typeOpts}</select></div><div class="form-group"><label class="form-label">Part Number *</label><input id="at-pn" class="form-control" placeholder="Contoh: PN-FD-001"></div>${fg('partName','Nama Part','Contoh: Pintu Depan Kiri')}<div class="form-group"><label class="form-label">Model</label><select id="at-model" class="form-control">${modelOpts}</select></div>${fg('supplier','Supplier *','Contoh: PT Auto Parts')}${fg('supplierAddress','Alamat Supplier','Contoh: Jl. Industri Raya No. 123')}${fg('mapUrl','Link Google Maps','Contoh: https://maps.google.com/?q=-6.2842,106.7442 atau https://www.google.com/maps/embed?pb=...')}<div class="form-group"><label class="form-label">Kepemilikan</label><select id="at-owner" class="form-control"><option>Milik MII</option><option>Milik Supplier</option><option>Milik Pelanggan</option></select></div><div class="form-group"><label class="form-label">Status</label><select id="at-status" class="form-control">${statOpts}</select></div><div class="form-group"><label class="form-label">Kondisi</label><select id="at-cond" class="form-control">${condOpts}</select></div>${fg('maker','Tool/Dies Maker','')}${fg('weight','Berat','Contoh: 5,500 kg')}${fg('tonnage','Tonase Mesin','Contoh: 1,200 Ton')}${fg('dimensions','Dimensi (PxLxT)','Contoh: 1500 x 800 x 950 mm')}${fg('material','Material','Contoh: SKD11 / P20')}${fg('price','Harga','Contoh: Rp 450.000.000')}${fg('pic','PIC','Contoh: Ahmad S.')}${fg('picEmail','Email PIC','Contoh: ahmad@supplier.com')}${fg('picPhone','Telepon PIC','Contoh: +62 812-3456-7890')}${fgNum('maxShoot','Maximum Shoot','Contoh: 1000000')}${fgNum('qtyPerTooling','Qty Part per Tooling','Contoh: 1')}${fg('paNumber','No. PO/Tooling PA','Contoh: PA-2023-0098')}${!this.currentUser.role.includes('Supplier') ? `<div class="form-group"><label class="form-label">QTY Depresiasi (pcs)</label><input type="text" id="at-qtyDepreciation" class="form-control" placeholder="Contoh: 500000"></div>${fg('depreciationValue','Periode Depresiasi (tahun)','Contoh: 5')}` : ''}</div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="app.closeModal('add-tooling-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitAddTooling()"><i class="fas fa-save"></i> Simpan</button></div></div>`;
         document.body.appendChild(modal); document.body.style.overflow='hidden';
         this.initNumberFormat('at-maxShoot');
@@ -2002,8 +2007,10 @@ getToolingListView() {
         const fgNum=(id,lbl,val)=>`<div class="form-group"><label class="form-label">${lbl}</label><input id="et-${id}" class="form-control" type="text" value="${val?app.formatNumber(val):''}"></div>`;
         const statOpts=['Aktif','Dalam Perbaikan','Tidak Aktif'].map(s=>`<option ${s===t.status?'selected':''}>${s}</option>`).join('');
         const condOpts=['Baik','Perlu Perbaikan','NG'].map(c=>`<option ${c===t.condition?'selected':''}>${c}</option>`).join('');
-        const typeOpts=[...new Set(this.data.toolings.map(t=>t.type))].map(o=>`<option ${o===t.type?'selected':''}>${o}</option>`).join('');
-        const modelOpts=[...new Set(this.data.toolings.map(t=>t.model).filter(m=>m&&m!=='-'))].map(o=>`<option ${o===t.model?'selected':''}>${o}</option>`).join('');
+        const typeMaster=(this.data.dieTypes||[]).map(x=>x.name);
+        const modelMaster=(this.data.productModels||[]).map(x=>x.name);
+        const typeOpts=[...new Set([...typeMaster,...this.data.toolings.map(t=>t.type)])].map(o=>`<option ${o===t.type?'selected':''}>${o}</option>`).join('');
+        const modelOpts=[...new Set([...modelMaster,...this.data.toolings.map(t=>t.model).filter(m=>m&&m!=='-')])].map(o=>`<option ${o===t.model?'selected':''}>${o}</option>`).join('');
         modal.innerHTML=`<div class="modal-content" style="max-width:640px;max-height:90vh"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-edit" style="color:var(--accent-color);margin-right:0.5rem"></i>Ubah Tooling: ${toolId}</h3><button class="modal-close" onclick="app.closeModal('edit-tooling-modal')">&times;</button></div><div class="modal-body" style="overflow-y:auto"><div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">${fg('name','Nama',t.name)}<div class="form-group"><label class="form-label">Tipe</label><select id="et-type" class="form-control">${typeOpts}</select></div><div class="form-group"><label class="form-label">Status</label><select id="et-status" class="form-control">${statOpts}</select></div><div class="form-group"><label class="form-label">Kondisi</label><select id="et-cond" class="form-control">${condOpts}</select></div><div class="form-group"><label class="form-label">Model</label><select id="et-model" class="form-control">${modelOpts}</select></div>${fg('supplier','Supplier',t.supplier)}${fg('supplierAddress','Alamat Supplier',t.supplierAddress)}${fg('mapUrl','Link Google Maps',t.mapUrl)}${fg('maker','Maker',t.maker)}${fg('weight','Berat',t.weight)}${fg('tonnage','Tonase',t.tonnage)}${fg('material','Material',t.material)}${fg('price','Harga',t.price)}${fg('pic','PIC',t.pic)}${fg('picEmail','Email PIC',t.picEmail)}${fg('picPhone','Telepon PIC',t.picPhone)}${fgNum('maxShoot','Maximum Shoot',t.maxShoot)}${fgNum('qtyPerTooling','Qty Part per Tooling',parseInt((t.qtyPerTooling||'').replace(/,/g,'')))}${!this.currentUser.role.includes('Supplier') ? fgNum('qtyDepreciation','QTY Depresiasi (pcs)',parseInt((t.qtyDepreciation||'').replace(/,/g,'')))+fg('depreciationValue','Periode Depresiasi (tahun)',t.depreciationValue||'') : ''}</div></div><div class="modal-footer">${this.currentUser.role.includes('Admin') ? `<button type="button" class="btn btn-secondary" onclick="app.closeModal('edit-tooling-modal');app.openDrawingDiesModal('${toolId}')"><i class="fas fa-upload"></i> Upload Drawing</button>` : ''}<button class="btn btn-secondary" onclick="app.closeModal('edit-tooling-modal')">Batal</button><button class="btn btn-primary" onclick="app.submitEditTooling('${toolId}')"><i class="fas fa-save"></i> Simpan</button></div></div>`;
         document.body.appendChild(modal); document.body.style.overflow='hidden';
         this.initNumberFormat('et-maxShoot');
@@ -2684,6 +2691,67 @@ getToolingListView() {
             this.data.users.splice(idx,1);
         }
         alert(`Pengguna ${u.username} berhasil dihapus.`);
+        document.getElementById('app-layout')?.remove(); this.router();
+    }
+
+    // ===== MASTER DATA: TIPE DIES & MODEL =====
+    async submitAddDieType() {
+        if (!this.currentUser.role.includes('Admin')) return;
+        const name=document.getElementById('dt-new-type')?.value?.trim();
+        if(!name){alert('Nama tipe dies wajib diisi.');return;}
+        const list=this.data.dieTypes||(this.data.dieTypes=[]);
+        if(list.some(x=>(x.name||'').toLowerCase()===name.toLowerCase())){alert(`Tipe "${name}" sudah ada.`);return;}
+        const newItem={id:list.reduce((m,x)=>Math.max(m,x.id||0),0)+1,name};
+        list.push(newItem);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{const created=await window.DTMS.insertDieType(newItem);if(created&&created.id)newItem.id=created.id;}catch(e){console.error(e);alert('Gagal menyimpan tipe dies ke database.');}
+        }
+        document.getElementById('app-layout')?.remove(); this.router();
+    }
+
+    async submitDeleteDieType(id) {
+        if (!this.currentUser.role.includes('Admin')) return;
+        const idx=(this.data.dieTypes||[]).findIndex(x=>x.id===id);
+        if(idx===-1)return;
+        const item=this.data.dieTypes[idx];
+        const usage=this.data.toolings.filter(t=>t.type===item.name).length;
+        if(usage>0){alert(`Tipe dies "${item.name}" tidak dapat dihapus karena masih digunakan oleh ${usage} tooling.`);return;}
+        if(!confirm(`Yakin ingin menghapus tipe dies "${item.name}"?`))return;
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.deleteDieType(id);this.data.dieTypes.splice(idx,1);}catch(e){console.error(e);alert('Gagal menghapus tipe dies dari database: '+(e?.message||e));return;}
+        } else {
+            this.data.dieTypes.splice(idx,1);
+        }
+        document.getElementById('app-layout')?.remove(); this.router();
+    }
+
+    async submitAddProductModel() {
+        if (!this.currentUser.role.includes('Admin')) return;
+        const name=document.getElementById('dt-new-model')?.value?.trim();
+        if(!name){alert('Nama model wajib diisi.');return;}
+        const list=this.data.productModels||(this.data.productModels=[]);
+        if(list.some(x=>(x.name||'').toLowerCase()===name.toLowerCase())){alert(`Model "${name}" sudah ada.`);return;}
+        const newItem={id:list.reduce((m,x)=>Math.max(m,x.id||0),0)+1,name};
+        list.push(newItem);
+        if(window.DTMS && window.DTMS.enabled()){
+            try{const created=await window.DTMS.insertProductModel(newItem);if(created&&created.id)newItem.id=created.id;}catch(e){console.error(e);alert('Gagal menyimpan model ke database.');}
+        }
+        document.getElementById('app-layout')?.remove(); this.router();
+    }
+
+    async submitDeleteProductModel(id) {
+        if (!this.currentUser.role.includes('Admin')) return;
+        const idx=(this.data.productModels||[]).findIndex(x=>x.id===id);
+        if(idx===-1)return;
+        const item=this.data.productModels[idx];
+        const usage=this.data.toolings.filter(t=>t.model===item.name).length;
+        if(usage>0){alert(`Model "${item.name}" tidak dapat dihapus karena masih digunakan oleh ${usage} tooling.`);return;}
+        if(!confirm(`Yakin ingin menghapus model "${item.name}"?`))return;
+        if(window.DTMS && window.DTMS.enabled()){
+            try{await window.DTMS.deleteProductModel(id);this.data.productModels.splice(idx,1);}catch(e){console.error(e);alert('Gagal menghapus model dari database: '+(e?.message||e));return;}
+        } else {
+            this.data.productModels.splice(idx,1);
+        }
         document.getElementById('app-layout')?.remove(); this.router();
     }
 
