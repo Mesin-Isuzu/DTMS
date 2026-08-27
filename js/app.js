@@ -413,6 +413,7 @@ class App {
                     <nav class="sidebar-nav">
                         <a href="#dashboard" class="nav-item"><i class="fas fa-home"></i> Ringkasan Dashboard</a>
                         <a href="#supplier-tasks" class="nav-item"><i class="fas fa-tasks"></i> Tugas Supplier</a>
+                        <a href="javascript:void(0)" class="nav-item" onclick="app.openSuppliersModal()"><i class="fas fa-building"></i> Daftar Supplier</a>
                         ${!this.currentUser.role.includes('Supplier') ? `<a href="#reports" class="nav-item"><i class="fas fa-chart-bar"></i> Laporan & KPI</a>` : ''}
                         ${this.currentUser.role.includes('Admin') ? `<a href="#admin" class="nav-item"><i class="fas fa-cog"></i> Pengaturan Admin</a>` : ''}
                     </nav>
@@ -1706,10 +1707,7 @@ getToolingListView() {
         const dtRows=dt.map(x=>{const usage=this.data.toolings.filter(t=>t.type===x.name).length;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border-color)"><span style="font-size:0.9rem">${x.name}</span><span style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0"><span class="text-muted" style="font-size:0.75rem">${usage} tooling</span><button class="btn btn-sm btn-danger" onclick="app.submitDeleteDieType(${x.id})" title="Hapus" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button></span></div>`;}).join('')||'<div style="padding:1rem;text-align:center;color:var(--text-secondary)">Belum ada tipe dies.</div>';
         const pmRows=pm.map(x=>{const usage=this.data.toolings.filter(t=>t.model===x.name).length;return `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0;border-bottom:1px solid var(--border-color)"><span style="font-size:0.9rem">${x.name}</span><span style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0"><span class="text-muted" style="font-size:0.75rem">${usage} tooling</span><button class="btn btn-sm btn-danger" onclick="app.submitDeleteProductModel(${x.id})" title="Hapus" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button></span></div>`;}).join('')||'<div style="padding:1rem;text-align:center;color:var(--text-secondary)">Belum ada model.</div>';
         const auditList=al.map(a=>`<div style="display:flex;gap:0.75rem;padding:0.75rem 0;border-bottom:1px solid var(--border-color)"><div style="width:32px;height:32px;border-radius:50%;background:${a.color}15;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas ${a.icon}" style="color:${a.color};font-size:0.75rem"></i></div><div style="flex:1"><div style="font-size:0.85rem">${a.action}</div><div style="font-size:0.75rem;color:var(--text-secondary)">${a.user} · ${a.time}</div></div></div>`).join('');
-        const sp=this.data.suppliers||[];
-        const sRows=sp.map(x=>{const usage=this.data.toolings.filter(t=>t.supplierId===x.supplierId).length;return `<tr><td>${x.supplierId}</td><td class="font-semibold">${x.name}</td><td style="max-width:220px;white-space:normal">${x.address||'-'}</td><td>${x.mapUrl?`<a href="${x.mapUrl}" target="_blank" title="Buka Google Maps"><i class="fas fa-map-marker-alt" style="color:var(--accent-color)"></i> Maps</a>`:'-'}</td><td>${x.pic||'-'}</td><td>${x.picEmail||'-'}</td><td>${x.picPhone||'-'}</td><td><button class="btn btn-sm btn-secondary" onclick="app.openEditSupplierModal(${x.id})" title="Edit" style="padding:0.25rem 0.5rem;margin-right:0.25rem"><i class="fas fa-edit"></i></button><button class="btn btn-sm btn-danger" onclick="app.submitDeleteSupplier(${x.id})" title="Hapus" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button></td></tr>`;}).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--text-secondary);padding:1rem">Belum ada supplier.</td></tr>';
-        const supplierCard=`<div class="card mt-4"><div class="card-header"><h3 class="card-title">Daftar Supplier</h3><button class="btn btn-primary" onclick="app.openAddSupplierModal()"><i class="fas fa-plus"></i> Tambah Supplier</button></div><div class="table-responsive"><table class="table"><thead><tr><th>Supplier ID</th><th>Nama Supplier</th><th>Alamat Supplier</th><th>Link Google Maps</th><th>Nama PIC</th><th>Email PIC</th><th>Telepon PIC</th><th>Aksi</th></tr></thead><tbody>${sRows}</tbody></table></div></div>`;
-        return `<div class="grid-2-1"><div><div class="card"><div class="card-header"><h3 class="card-title">Manajemen Pengguna</h3><button class="btn btn-primary" onclick="app.openAddUserModal()"><i class="fas fa-plus"></i> Tambah Pengguna</button></div><div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Username</th><th>Nama</th><th>Perusahaan</th><th>Role</th><th>Aksi</th></tr></thead><tbody>${uRows}</tbody></table></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Manajemen Tipe Dies</h3></div><div class="card-body" style="padding:1rem 1.25rem"><div style="display:flex;gap:0.5rem;margin-bottom:0.75rem"><input type="text" id="dt-new-type" class="form-control" placeholder="Contoh: Progressive Die" onkeydown="if(event.key==='Enter')app.submitAddDieType()"><button class="btn btn-primary" onclick="app.submitAddDieType()" style="flex-shrink:0"><i class="fas fa-plus"></i> Tambah</button></div><div id="dt-type-list">${dtRows}</div></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Manajemen Model</h3></div><div class="card-body" style="padding:1rem 1.25rem"><div style="display:flex;gap:0.5rem;margin-bottom:0.75rem"><input type="text" id="dt-new-model" class="form-control" placeholder="Contoh: SUV-Z" onkeydown="if(event.key==='Enter')app.submitAddProductModel()"><button class="btn btn-primary" onclick="app.submitAddProductModel()" style="flex-shrink:0"><i class="fas fa-plus"></i> Tambah</button></div><div id="dt-model-list">${pmRows}</div></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Log Aktivitas Sistem</h3></div><div class="card-body" style="padding:1rem 1.25rem">${auditList}</div></div></div><div><div class="card mb-4"><div class="card-header"><h3 class="card-title">Perbaikan Data</h3></div><div class="card-body"><p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem">Cocokkan Supplier ID semua dies dengan user supplier berdasarkan nama/perusahaan.</p><button class="btn btn-secondary" onclick="app.repairSupplierLinks()"><i class="fas fa-link"></i> Perbaiki Link Supplier ID</button></div></div><div class="card"><div class="card-header"><h3 class="card-title">Info Sistem</h3></div><div class="card-body"><div class="info-item mb-4"><span class="info-label">Versi</span><span class="info-value">1.0.0 MVP</span></div><div class="info-item mb-4"><span class="info-label">Tooling</span><span class="info-value">${this.data.toolings.length} data</span></div><div class="info-item mb-4"><span class="info-label">User</span><span class="info-value">${u.length} pengguna</span></div></div></div></div></div>${supplierCard}`;
+        return `<div class="grid-2-1"><div><div class="card"><div class="card-header"><h3 class="card-title">Manajemen Pengguna</h3><button class="btn btn-primary" onclick="app.openAddUserModal()"><i class="fas fa-plus"></i> Tambah Pengguna</button></div><div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Username</th><th>Nama</th><th>Perusahaan</th><th>Role</th><th>Aksi</th></tr></thead><tbody>${uRows}</tbody></table></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Manajemen Tipe Dies</h3></div><div class="card-body" style="padding:1rem 1.25rem"><div style="display:flex;gap:0.5rem;margin-bottom:0.75rem"><input type="text" id="dt-new-type" class="form-control" placeholder="Contoh: Progressive Die" onkeydown="if(event.key==='Enter')app.submitAddDieType()"><button class="btn btn-primary" onclick="app.submitAddDieType()" style="flex-shrink:0"><i class="fas fa-plus"></i> Tambah</button></div><div id="dt-type-list">${dtRows}</div></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Manajemen Model</h3></div><div class="card-body" style="padding:1rem 1.25rem"><div style="display:flex;gap:0.5rem;margin-bottom:0.75rem"><input type="text" id="dt-new-model" class="form-control" placeholder="Contoh: SUV-Z" onkeydown="if(event.key==='Enter')app.submitAddProductModel()"><button class="btn btn-primary" onclick="app.submitAddProductModel()" style="flex-shrink:0"><i class="fas fa-plus"></i> Tambah</button></div><div id="dt-model-list">${pmRows}</div></div></div><div class="card mt-4"><div class="card-header"><h3 class="card-title">Log Aktivitas Sistem</h3></div><div class="card-body" style="padding:1rem 1.25rem">${auditList}</div></div></div><div><div class="card mb-4"><div class="card-header"><h3 class="card-title">Perbaikan Data</h3></div><div class="card-body"><p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:0.75rem">Cocokkan Supplier ID semua dies dengan user supplier berdasarkan nama/perusahaan.</p><button class="btn btn-secondary" onclick="app.repairSupplierLinks()"><i class="fas fa-link"></i> Perbaiki Link Supplier ID</button></div></div><div class="card"><div class="card-header"><h3 class="card-title">Info Sistem</h3></div><div class="card-body"><div class="info-item mb-4"><span class="info-label">Versi</span><span class="info-value">1.0.0 MVP</span></div><div class="info-item mb-4"><span class="info-label">Tooling</span><span class="info-value">${this.data.toolings.length} data</span></div><div class="info-item mb-4"><span class="info-label">User</span><span class="info-value">${u.length} pengguna</span></div></div></div></div></div>`;
     }
 
     // ===== NOTIFICATIONS =====
@@ -2913,6 +2911,22 @@ getToolingListView() {
     }
 
     // ===== MASTER DATA: SUPPLIERS =====
+    openSuppliersModal() {
+        const isAdmin=this.currentUser.role.includes('Admin');
+        const sp=this.data.suppliers||[];
+        const sRows=sp.map(x=>{
+            const editBtn=isAdmin?`<button class="btn btn-sm btn-secondary" onclick="app.openEditSupplierModal(${x.id})" title="Edit" style="padding:0.25rem 0.5rem;margin-right:0.25rem"><i class="fas fa-edit"></i></button>`:`<button class="btn btn-sm btn-secondary" disabled title="Khusus Admin" style="padding:0.25rem 0.5rem;margin-right:0.25rem"><i class="fas fa-edit"></i></button>`;
+            const delBtn=isAdmin?`<button class="btn btn-sm btn-danger" onclick="app.submitDeleteSupplier(${x.id})" title="Hapus" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button>`:`<button class="btn btn-sm btn-danger" disabled title="Khusus Admin" style="padding:0.25rem 0.5rem"><i class="fas fa-trash"></i></button>`;
+            return `<tr><td>${x.supplierId}</td><td class="font-semibold">${x.name}</td><td style="max-width:220px;white-space:normal">${x.address||'-'}</td><td>${x.mapUrl?`<a href="${x.mapUrl}" target="_blank" title="Buka Google Maps"><i class="fas fa-map-marker-alt" style="color:var(--accent-color)"></i> Maps</a>`:'-'}</td><td>${x.pic||'-'}</td><td>${x.picEmail||'-'}</td><td>${x.picPhone||'-'}</td><td>${editBtn}${delBtn}</td></tr>`;
+        }).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--text-secondary);padding:1rem">Belum ada supplier.</td></tr>';
+        const existing=document.getElementById('suppliers-modal');
+        if(existing) existing.remove();
+        const modal=document.createElement('div');
+        modal.id='suppliers-modal'; modal.className='modal-overlay'; modal.style.cssText='display:flex;opacity:1;visibility:visible;';
+        modal.innerHTML=`<div class="modal-content" style="max-width:900px;max-height:90vh"><div class="modal-header"><h3 class="modal-title"><i class="fas fa-building" style="color:var(--accent-color);margin-right:0.5rem"></i>Daftar Supplier</h3><div style="display:flex;align-items:center;gap:0.5rem">${isAdmin?`<button class="btn btn-primary" onclick="app.openAddSupplierModal()"><i class="fas fa-plus"></i> Tambah Supplier</button>`:''}<button class="modal-close" onclick="app.closeModal('suppliers-modal')">&times;</button></div></div><div class="modal-body" style="overflow-y:auto"><div class="table-responsive"><table class="table"><thead><tr><th>Supplier ID</th><th>Nama Supplier</th><th>Alamat Supplier</th><th>Link Google Maps</th><th>Nama PIC</th><th>Email PIC</th><th>Telepon PIC</th><th>Aksi</th></tr></thead><tbody>${sRows}</tbody></table></div></div></div>`;
+        document.body.appendChild(modal); document.body.style.overflow='hidden';
+    }
+
     openAddSupplierModal() {
         if (!this.currentUser.role.includes('Admin')) return;
         const list=this.data.suppliers||[];
@@ -2938,7 +2952,7 @@ getToolingListView() {
         list.push(newSupplier);
         this.closeModal('add-supplier-modal');
         alert(`Supplier ${newSupplier.name} (${newSupplier.supplierId}) berhasil ditambahkan.`);
-        document.getElementById('app-layout')?.remove(); this.router();
+        this.closeModal('suppliers-modal'); this.openSuppliersModal();
     }
 
     openEditSupplierModal(id) {
@@ -2964,7 +2978,7 @@ getToolingListView() {
         }
         this.closeModal('edit-supplier-modal');
         alert(`Supplier ${s.name} berhasil diperbarui.`);
-        document.getElementById('app-layout')?.remove(); this.router();
+        this.closeModal('suppliers-modal'); this.openSuppliersModal();
     }
 
     async submitDeleteSupplier(id) {
@@ -2981,7 +2995,7 @@ getToolingListView() {
             this.data.suppliers.splice(idx,1);
         }
         alert(`Supplier ${item.name} berhasil dihapus.`);
-        document.getElementById('app-layout')?.remove(); this.router();
+        this.closeModal('suppliers-modal'); this.openSuppliersModal();
     }
 
     // ===== AGGREGATE PERIODS =====

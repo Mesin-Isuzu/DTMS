@@ -1282,3 +1282,9 @@ ul {
     color: var(--text-primary);
     word-break: break-word;
 }
+
+.btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
