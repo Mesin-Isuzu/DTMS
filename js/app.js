@@ -385,7 +385,7 @@ class App {
                     <div class="login-header">
                         <img src="img/isuzu_logo.svg" alt="ISUZU" class="login-logo">
                         <h2>MESIN ISUZU INDONESIA</h2>
-                        <p>Dies & Tool Management</p>
+                        <p>Dies & Tool Management System</p>
                     </div>
                     <form class="login-form" onsubmit="event.preventDefault(); app.login(document.getElementById('username').value, document.getElementById('password').value);">
                         <div class="form-group">
