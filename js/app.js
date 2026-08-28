@@ -2892,10 +2892,14 @@ getToolingListView() {
         if(u.username==='admin'){alert('User admin tidak dapat dihapus.');return;}
         if(!confirm(`Yakin ingin menghapus pengguna "${u.username}" (${u.name})?`))return;
         if(window.DTMS && window.DTMS.enabled()){
-            const authResult = await window.DTMS.deleteAuthUser(u.email);
-            if(authResult.error){
-                alert('Gagal menghapus akun: ' + authResult.error.message + '\nPengguna tidak dihapus. Pastikan Edge Function admin-user sudah di-deploy.');
-                return;
+            let authGone=false;
+            if(u.email){
+                const authResult = await window.DTMS.deleteAuthUser(u.email);
+                if(authResult.error){
+                    alert('Gagal menghapus akun: ' + authResult.error.message + '\nPengguna tidak dihapus. Pastikan Edge Function admin-user sudah di-deploy.');
+                    return;
+                }
+                authGone=!!(authResult.data && authResult.data.alreadyGone);
             }
             try{
                 await window.DTMS.deleteUser(userId);
@@ -2904,6 +2908,9 @@ getToolingListView() {
                 console.error(e);
                 alert('Gagal menghapus pengguna dari database: ' + (e?.message || e));
                 return;
+            }
+            if(authGone){
+                console.warn(`Akun Auth untuk ${u.email||u.username} sudah tidak ada; hanya baris database yang dihapus.`);
             }
         } else {
             this.data.users.splice(idx,1);

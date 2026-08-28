@@ -126,15 +126,30 @@ serve(async (req: Request) => {
       });
     }
 
-    const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers();
-    if (listError) {
-      return new Response(JSON.stringify({ error: "failed to list users", detail: listError.message }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const normEmail = (email || "").trim().toLowerCase();
+    let targetUser: { id: string; email?: string } | undefined;
+    let page = 1;
+    const perPage = 200;
+    while (page <= 50) {
+      const { data, error: listError } = await adminClient.auth.admin.listUsers({ page, perPage });
+      if (listError) {
+        return new Response(JSON.stringify({ error: "failed to list users", detail: listError.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const pageUsers = (data && data.users) || [];
+      targetUser = pageUsers.find((u) => (u.email || "").trim().toLowerCase() === normEmail);
+      if (targetUser) break;
+      if (pageUsers.length < perPage) break;
+      page++;
     }
 
-    const targetUser = users.find((u) => u.email === email);
     if (!targetUser) {
+      if (action === "delete") {
+        return new Response(JSON.stringify({ deleted: true, alreadyGone: true, email }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(JSON.stringify({ error: "user not found in auth" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
