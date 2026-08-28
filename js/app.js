@@ -812,13 +812,19 @@ getToolingListView() {
                                 const lastShoot = toolLogs.reduce((sum, l) => sum + l.shootCount, 0);
                                 const maxLife = t.maxShoot || 1000000;
                                 const lifeRatio = maxLife > 0 ? (lastShoot / maxLife * 100) : 0;
+                                const donutColor = lifeRatio >= 90 ? 'var(--danger-color)' : lifeRatio >= 70 ? 'var(--warning-color)' : 'var(--success-color)';
                                 return `
                             <div class="info-list">
                                 <div class="info-item">
                                     <span class="info-label">Life Time</span>
                                     <span class="info-value">${lastShoot.toLocaleString('id-ID')} / ${maxLife.toLocaleString('id-ID')} shot</span>
-                                    <div style="width: 100%; height: 6px; background: var(--border-color); border-radius: 3px; margin-top: 0.5rem;">
-                                        <div style="width: ${lifeRatio}%; height: 100%; background: var(--accent-color); border-radius: 3px;"></div>
+                                    <div style="display:flex;justify-content:center;margin-top:1rem">
+                                        <div style="width:132px;height:132px;border-radius:50%;background:conic-gradient(${donutColor} ${lifeRatio}%, var(--border-color) ${lifeRatio}%);display:flex;align-items:center;justify-content:center">
+                                            <div style="width:86px;height:86px;border-radius:50%;background:var(--surface-color);display:flex;flex-direction:column;align-items:center;justify-content:center">
+                                                <span style="font-weight:700;font-size:1.15rem;line-height:1.2;color:${donutColor}">${lifeRatio.toFixed(1)}%</span>
+                                                <span style="font-size:0.65rem;color:var(--text-secondary)">Life Tool Ratio</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="info-item mt-4">
