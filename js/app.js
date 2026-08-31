@@ -2658,28 +2658,37 @@ getToolingListView() {
         const files=fileInput?.files;
         if(!dateStart||!desc){alert('Harap isi tanggal mulai dan deskripsi perbaikan.');return;}
         const actYear=dateStart.substring(0,4);
-        const seqBase=(this.data.maintenanceLogs||[]).reduce((max,l)=>{
-            const m=String(l.id||'').match(/^MR-\d{4}-(\d+)$/);
-            const n=m?parseInt(m[1],10):0;
-            return Math.max(max,n);
-        },0);
-        const newId=`MR-${actYear}-${String(seqBase+1).padStart(4,'0')}`;
+        const runKey=(Date.now().toString(36)+Math.random().toString(36).slice(2,8)).toLowerCase();
         const fmtDateStart=new Date(dateStart).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
         const fmtDateEnd=dateEnd?new Date(dateEnd).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):null;
         const afterRead=async(nameArr, pathArr)=>{
-            const newLog={
-                id:newId,toolId,toolName:t.name,dateStart:fmtDateStart,dateEnd:fmtDateEnd,type,description:desc,status,
-                evidence:nameArr? (nameArr.length===1?nameArr[0]:nameArr.join(', ')) : '',
-                evidencePath:pathArr? (pathArr.length===1?pathArr[0]:pathArr.join(', ')) : '',
-                requestedBy:this.currentUser.name
-            };
-            if(window.DTMS && window.DTMS.enabled()){
-                try{await window.DTMS.insertMaintenanceLog(newLog);}catch(e){console.error(e);alert('Gagal menyimpan perbaikan ke database: '+(e?.message||e));return;}
+            const seqBase=(this.data.maintenanceLogs||[]).reduce((max,l)=>{
+                const m=String(l.id||'').match(/^MR-\d{4}-(\d+)$/);
+                return Math.max(max, m?parseInt(m[1],10):0);
+            },0);
+            for(let seq=seqBase+1, attempt=0; attempt<100; seq++, attempt++){
+                const newId=`MR-${actYear}-${String(seq).padStart(4,'0')}`;
+                const newLog={
+                    id:newId,toolId,toolName:t.name,dateStart:fmtDateStart,dateEnd:fmtDateEnd,type,description:desc,status,
+                    evidence:nameArr? (nameArr.length===1?nameArr[0]:nameArr.join(', ')) : '',
+                    evidencePath:pathArr? (pathArr.length===1?pathArr[0]:pathArr.join(', ')) : '',
+                    requestedBy:this.currentUser.name
+                };
+                if(window.DTMS && window.DTMS.enabled()){
+                    try{await window.DTMS.insertMaintenanceLog(newLog);}
+                    catch(e){
+                        const msg=(e?.message||e||'').toString();
+                        if(/duplicate key|23505/i.test(msg)) continue;
+                        console.error(e); alert('Gagal menyimpan perbaikan ke database: '+msg); return;
+                    }
+                }
+                this.data.maintenanceLogs.unshift(newLog);
+                this.closeModal('add-repair-modal');
+                alert(`Riwayat perbaikan ${newId} berhasil ditambahkan!`);
+                document.getElementById('app-layout')?.remove(); this.router();
+                return;
             }
-            this.data.maintenanceLogs.unshift(newLog);
-            this.closeModal('add-repair-modal');
-            alert(`Riwayat perbaikan ${newId} berhasil ditambahkan!`);
-            document.getElementById('app-layout')?.remove(); this.router();
+            alert('Gagal menyimpan perbaikan: nomor urut ticket habis.');
         };
         if(files&&files.length>0){
             const fileArr=Array.from(files);
@@ -2693,7 +2702,7 @@ getToolingListView() {
             };
             fileArr.forEach(f=>{
                 if(window.DTMS && window.DTMS.enabled()){
-                    const path=window.DTMS.makePath('maintenanceLogs',newId,f.name);
+                    const path=window.DTMS.makePath('maintenanceLogs',runKey,f.name);
                     window.DTMS.uploadFile('evidence',f,path).then(res=>{
                         results.push({name:f.name,path:res.publicUrl||res.path});
                         loaded++;done();
