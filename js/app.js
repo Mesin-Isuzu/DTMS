@@ -2657,7 +2657,13 @@ getToolingListView() {
         const fileInput=document.getElementById('rp-evidence');
         const files=fileInput?.files;
         if(!dateStart||!desc){alert('Harap isi tanggal mulai dan deskripsi perbaikan.');return;}
-        const newId=`MR-${Date.now()}`;
+        const actYear=dateStart.substring(0,4);
+        const seqBase=(this.data.maintenanceLogs||[]).reduce((max,l)=>{
+            const m=String(l.id||'').match(/^MR-\d{4}-(\d{4})$/);
+            const n=m?parseInt(m[1],10):0;
+            return Math.max(max,n);
+        },0);
+        const newId=`MR-${actYear}-${String(seqBase+1).padStart(4,'0')}`;
         const fmtDateStart=new Date(dateStart).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
         const fmtDateEnd=dateEnd?new Date(dateEnd).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}):null;
         const afterRead=async(nameArr, pathArr)=>{
