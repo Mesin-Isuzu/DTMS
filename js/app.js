@@ -2659,7 +2659,7 @@ getToolingListView() {
         if(!dateStart||!desc){alert('Harap isi tanggal mulai dan deskripsi perbaikan.');return;}
         const actYear=dateStart.substring(0,4);
         const seqBase=(this.data.maintenanceLogs||[]).reduce((max,l)=>{
-            const m=String(l.id||'').match(/^MR-\d{4}-(\d{4})$/);
+            const m=String(l.id||'').match(/^MR-\d{4}-(\d+)$/);
             const n=m?parseInt(m[1],10):0;
             return Math.max(max,n);
         },0);

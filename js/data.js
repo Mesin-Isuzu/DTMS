@@ -233,7 +233,7 @@ const mockData = {
 
     maintenanceLogs: [
         {
-            id: 'MR-2025-0001',
+            id: 'MR-2025-0005',
             toolId: 'T-2025-001',
             toolName: 'Front Door Panel Die',
             dateStart: '15 Jul 2025',
@@ -246,7 +246,7 @@ const mockData = {
             cost: 'Rp 2.500.000'
         },
         {
-            id: 'MR-2025-0002',
+            id: 'MR-2025-0004',
             toolId: 'T-2025-002',
             toolName: 'Rear Bumper Mold',
             dateStart: '10 Jul 2025',
@@ -259,7 +259,7 @@ const mockData = {
             cost: 'Rp 15.000.000'
         },
         {
-            id: 'MR-2025-0003',
+            id: 'MR-2025-0006',
             toolId: 'T-2025-004',
             toolName: 'Roof Panel Die',
             dateStart: '01 Aug 2025',
@@ -272,7 +272,7 @@ const mockData = {
             cost: 'Rp 1.800.000'
         },
         {
-            id: 'MR-2025-0004',
+            id: 'MR-2025-0008',
             toolId: 'T-2025-001',
             toolName: 'Front Door Panel Die',
             dateStart: '20 Oct 2025',
@@ -285,7 +285,7 @@ const mockData = {
             cost: 'Rp 8.500.000'
         },
         {
-            id: 'MR-2026-0005',
+            id: 'MR-2026-0011',
             toolId: 'T-2025-001',
             toolName: 'Front Door Panel Die',
             dateStart: '10 Feb 2026',
@@ -298,7 +298,7 @@ const mockData = {
             cost: 'Rp 22.000.000'
         },
         {
-            id: 'MR-2025-0006',
+            id: 'MR-2025-0009',
             toolId: 'T-2025-002',
             toolName: 'Rear Bumper Mold',
             dateStart: '15 Nov 2025',
@@ -311,7 +311,7 @@ const mockData = {
             cost: 'Rp 3.200.000'
         },
         {
-            id: 'MR-2026-0007',
+            id: 'MR-2026-0010',
             toolId: 'T-2025-002',
             toolName: 'Rear Bumper Mold',
             dateStart: '28 Jan 2026',
@@ -324,7 +324,7 @@ const mockData = {
             cost: 'Rp 12.000.000'
         },
         {
-            id: 'MR-2025-0008',
+            id: 'MR-2025-0002',
             toolId: 'T-2025-004',
             toolName: 'Roof Panel Die',
             dateStart: '15 May 2025',
@@ -337,7 +337,7 @@ const mockData = {
             cost: 'Rp 18.500.000'
         },
         {
-            id: 'MR-2025-0009',
+            id: 'MR-2025-0007',
             toolId: 'T-2025-005',
             toolName: 'Dashboard Mold',
             dateStart: '05 Aug 2025',
@@ -350,7 +350,7 @@ const mockData = {
             cost: 'Rp 4.000.000'
         },
         {
-            id: 'MR-2025-0010',
+            id: 'MR-2025-0003',
             toolId: 'T-2025-003',
             toolName: 'Engine Block Casting',
             dateStart: '20 Jun 2025',
@@ -363,7 +363,7 @@ const mockData = {
             cost: 'Rp 35.000.000'
         },
         {
-            id: 'MR-2025-0011',
+            id: 'MR-2025-0001',
             toolId: 'T-2025-003',
             toolName: 'Engine Block Casting',
             dateStart: '05 Apr 2025',
